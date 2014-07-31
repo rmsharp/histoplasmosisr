@@ -1,0 +1,303 @@
+<<setup_timer, echo = FALSE, include = FALSE>>=
+## should be in a "source" file
+start_time <- proc.time()
+## stringr, lubridate, and XLConnect are attached by r_utility_function.R, 
+## but stringr is needed to find the file (str_detect()).
+require(stringr, quietly = TRUE)
+require(rmsutilityr, quietly = TRUE)
+require(grid, quietly = TRUE)
+
+if (str_detect(Sys.info()['user'], 'msharp')) {
+  source("~/Documents/Development/R/r_workspace/animal_db_lb.R")
+} else {
+  source("~/Development/Mark/R/animal_db_lb.R") 
+}
+
+@
+<<load_packages, echo = FALSE, include = FALSE>>=
+require(xtable, quietly = TRUE)
+require(RODBC, quietly = TRUE)
+require(ggplot2, quietly = TRUE)
+require(reshape2, quietly = TRUE)
+suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
+source("../R/histoplasmosisr_lb.R")
+
+@
+\documentclass[12pt,a4paper,article]{memoir} % for a short document
+\usepackage{amssymb,amsmath}
+\usepackage{hyperref} % URLs etc
+%\usepackage{enumitem}
+\usepackage{pdflscape}
+\usepackage{enumerate}
+\usepackage{colortbl}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{underscore}
+\usepackage{titling}
+\usepackage{mathbbol}
+\usepackage{fixltx2e} % allows text subscripts
+\newcommand{\subtitle}[1]{%
+  \posttitle{%
+    \par\end{center}
+    \begin{center}\large#1\end{center}
+    \vskip0.5em}%
+}
+\usepackage{soul}
+\makeatletter
+\DeclareRobustCommand*\myul{%
+    \def\SOUL@everyspace{\underline{\space}\kern\z@}
+    \def\SOUL@everytoken{%
+     \setbox0=\hbox{\the\SOUL@token}%
+     \ifdim\dp0>\z@
+        \the\SOUL@token
+     \else
+        \underline{\the\SOUL@token}%
+     \fi}
+\SOUL@}
+\makeatother
+% from Louis01012009 (sharpBibtex.bib)
+\newcommand{\estse}[2]{${#1}_{(#2)}$}
+\newcommand{\cithree}[3]{$_{{#1}\ }{#2}_{\ {#3}}$}
+\newcommand{\cifive}[5]{$_{_{#1\ }{#2}\ \!}{#3}_{\ #4_{\ #5}}$}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\filename}[1]{\texttt{#1}}
+\newcommand{\rpackage}[1]{\textit{#1}}
+\usepackage[top = 1.5in, bottom = 1.5in, left = 1in, right = 0.75in]{geometry}
+
+% See the ``Memoir customise'' template for some common customisations
+% Don't forget to read the Memoir manual: memman.pdf
+
+\title{Histoplasmosis data for specified animals}
+\author{SNPRC -- Primate Records Database Team}
+\date{\today}
+
+%%% BEGIN DOCUMENT
+\begin{document}
+
+\maketitle
+\section*{Purpose}
+The purpose of this document is to provide an initial look at the data from the
+list of animals initial detection of \emph{Histoplasmosis duboisii} provided 
+by Dr. Dick as described in the emails below.  
+
+The two histograms that follow show a large number of cases during January and 
+a severe deficit of cases in December, which makes me to suspect a systematic 
+reporting issue that
+has moved cases from the end of the year to the beginning of the year. 
+I do not know the origin of these data and dates and cannot speculate 
+further.
+
+\section*{Correspondence}
+\begin{verbatim}
+From: Edward Dick <edick@TxBiomed.org>
+Subject: RE: Heads up - Baboon housing querry
+Date: July 8, 2014 at 1:20:25 PM CDT
+To: Mark Sharp <msharp@TxBiomed.org>, 
+Priscilla Williams <pwilliams@TxBiomed.org>
+Cc: Megan Gonzales <mgonzales@txbiomed.org>, 
+Michael Owston <mowston@TxBiomed.org>
+
+OK.  Here are the critters.  The attached list contains the animal ID’s 
+and date of first recorded detection/development of a Histoplasmosis 
+duboisii lesion for that animal.
+ 
+1.  Can you tell if there is any significant seasonality in time of 
+first lesion detection/development? 
+1.a.  Can you also run this same question a second time, removing any 
+batches of diagnoses associated with roundup events?  Suspect these 
+could cause a false bunching up 2 times per year.
+ 
+2.  We are interested in the animals birth location.  Is there any way 
+to tease out an association with specific corral(s) or gang cage(s).
+ 
+3.  We are also interested in housing history from birth until the 
+date listed for each animal.  This would cover their lifetime prior 
+to diagnosis with Histoplasmosis duboisii.  Is there any way to tease 
+out an association with specific corral(s) or gang cage(s).  The 
+incubation period for this can be many years, so have to go way back.
+
+Thank you for your help,
+ 
+Edward J. Dick, Jr., D.V.M., diplomate ACVP
+
+---------------------------------------------------------
+From: Edward Dick <edick@TxBiomed.org>
+Subject: Heads up - Baboon housing querry
+Date: June 30, 2014 at 4:19:05 PM CDT
+To: Mark Sharp <msharp@TxBiomed.org>
+Cc: Priscilla Williams <pwilliams@TxBiomed.org>, 
+Megan Gonzales <mgonzales@txbiomed.org>, 
+Michael Owston <mowston@TxBiomed.org>
+
+We have a summer intern who is looking at Histoplasmosis duboisii 
+cases in baboons.  Age, sex, lesion locations, etc. we can 
+probably get pretty well.  We would really like your help in 2 areas:
+ 
+1.  We will also document the first time the lesion was observed - 
+maybe you could help determine if there is any statistical 
+significance for seasonality?
+ 
+2.  One are we would REALLY like to evaluate, but have no idea how 
+to do it, is housing history to see if any areas seem to be 
+overrepresented.  The disease can have an EXTREMELY long incubation 
+period.  We would basically need to look at the animals housing 
+history from birth until first diagnosis and try to see if we could 
+tease anything out of that.  If I could give you a list of animal IDs 
+and the date of first diagnosis for each animal, could you find some 
+way to tease some answers out of the database?  May want to look at 
+seasonality and location of birth as well, just in case that shows 
+something?
+ 
+Megan is hoping she will have the list of animals and cut off dates 
+for housing by the end of this week.
+
+\end{verbatim}
+<<set_options, echo = FALSE, include = FALSE>>=
+options(continue = " ")
+options(width = 60)
+opts_chunk$set(autodep = TRUE)
+opts_chunk$set(concordance=TRUE)
+opts_chunk$set(keep.source=TRUE, eps = FALSE)
+opts_chunk$set(echo = FALSE, cache = FALSE, include = FALSE, tidy = FALSE)
+
+@
+<<get_data, echo = FALSE, include = FALSE>>=
+#filename <- "../data/Histo Boon Sharp 20140708.xls"
+filename <- "../data/Copy of Histo Boon Sharp 20140716.xls"
+histo_data <- loadWorkbook(filename)
+df <- readWorksheet(histo_data, sheet = 1)
+names(df) <-  c("id", "first_noted")
+
+df$id <- blank_fill_ids(df$id)
+df$day_of_year <- as.integer(strftime(df$first_noted, format = '%j'))
+df$month <- as.integer(strftime(df$first_noted, format = '%m'))
+
+ids_str <- vector2string(vector = unique(df$id))
+
+@
+<<make-database-connection>>=
+conn <- odbcConnect("frogstar-vortex-animal-sa")
+
+@
+<<add-birthdate-sex-age>>=
+df <- add_birth_date(conn, df)
+df <- add_sex(conn, df)
+df$age <- (df$first_noted - df$birth_date) / eyears(1)
+
+@
+<<report-ages>>=
+create_wkbk("../reports/histo_animal_ages_at_first_noted_date.xlsx", list(df), 
+            sheetnames = "birth_dates_ages")
+
+@
+<<get_loc_data, echo = FALSE, include = FALSE>>=
+#possible_durations <- c("month", "year", "day", "week")
+#timeframe <- "2 weeks" # c("1 year", "2 year", "1 month", "30 days")
+#date_num <- as.numeric(unlist(strsplit(timeframe, " "))[1])
+#date_str <- possible_durations[str_detect(timeframe, possible_durations)]
+<<create_ed_hist>>=
+X_ed_hist <- "X_ed_hist"
+drop_status <- sqlQuery(conn, str_c("drop table ", X_ed_hist))
+expect_equal(drop_status, as.character(NULL))
+
+create_X_ed_hist(conn, X_ed_hist)
+insert_id_first_noted(conn, X_ed_hist, df)
+new_df <- make_new_df(conn, X_ed_hist)
+housing_types <- get_housing_types(conn)
+
+odbcClose(conn)
+
+@
+<<new_df_percentages, echo = FALSE, include = TRUE, results = "asis">>=
+
+#new_df$corral[new_df$location == "100.01" | new_df$location == "105.00"] #<- 1
+new_df$gang <- ifelse(new_df$location %in% housing_types$gang, 1, 0)
+new_df$corral <- ifelse(new_df$location %in% housing_types$corral, 1, 0)
+new_df$single <- ifelse(new_df$location %in% housing_types$single, 1, 0)
+
+df$days_alive <- (df$first_noted - df$birth_date) / edays(1)
+
+df$days_gang <- sapply(df$id, FUN = function(id) {get_days_gang(id, new_df)})
+df$percent_gang <- (df$days_gang / df$days_alive) * 100
+df$days_corral <- sapply(df$id, FUN = function(id) {get_days_corral(id, new_df)})
+df$percent_corral <- (df$days_corral / df$days_alive) * 100
+df$days_single <- sapply(df$id, FUN = function(id) {get_days_single(id, new_df)})
+df$percent_single <- (df$days_single / df$days_alive) * 100
+#merged_df <- merge(new_df, df, by = "id")
+df_to_be_melted <- subset(df, select = c("id", "age", "sex", "days_gang", 
+                                         "days_corral", "days_single"))
+melt_df <- melt(df_to_be_melted, id = c("id", "sex", "age"))
+
+percent_animals_ever_in_corral <- 
+  length(melt_df$value[melt_df$value > 0 & 
+                         melt_df$variable == 'days_corral']) / 
+  length(melt_df$value[melt_df$variable == 'days_corral'])
+percent_animals_ever_in_gang <- 
+  length(melt_df$value[melt_df$value > 0 & 
+                         melt_df$variable == 'days_gang']) / 
+  length(melt_df$value[melt_df$variable == 'days_gang'])
+percent_animals_ever_single <-
+  length(melt_df$value[melt_df$value > 0 & 
+                         melt_df$variable == 'days_single']) / 
+  length(melt_df$value[melt_df$variable == 'days_single'])
+
+@
+<<myplot, fig.height = 6, fig.width=8, include = TRUE, results = "asis", echo = FALSE>>=
+#hist(df$age)
+
+ggplot(df, aes(age, fill = sex)) + geom_histogram(binwidth = 1) + 
+  facet_grid(~sex , 
+             #margins = TRUE, 
+             scales = "free")
+#  grid.frame(name="df") 
+#  grid.pack("df", ggplotGrob(age_freq_plot)) 
+#  grid.pack("df", textGrob("a new subtitle"), side="bottom") 
+
+
+ggplot(melt_df, aes(x= value, fill=sex)) + 
+   geom_bar(binwidth = 250) + facet_grid (variable ~ sex) + xlab("") + 
+   scale_fill_discrete("loc_grp")
+
+#ggplot(melt_df, aes(x= age, fill=sex)) + 
+#   geom_bar(binwidth = round(max(melt_df$age), digits = -1)/10) + #facet_grid (variable ~ sex) + xlab("") + coord_flip() + 
+#   scale_fill_discrete("loc_grp")
+
+
+other_locations <- unique(new_df$location[new_df$gang == 0 & new_df$corral == 0 
+                                          & new_df$single == 0])
+
+
+@
+Still unaccounted for in the gang cage, corral, and single housing designations
+are \Sexpr{get_and_or_list(sort(other_locations[other_locations >= 1.0]))}.
+
+<<plot-hist, fig.height = 6, fig.width=8, results = 'asis', include = TRUE>>=
+par(mfrow = c(1, 2))
+cat("\\begin{figure}\n")
+hist(df$day_of_year, main = '', xlab = "Day of Year")
+hist(df$month, main = '', xlab = "Month of Year")
+#ggplot(df, aes(day_of_year, fill = "count")) + geom_histogram(binwidth = 25, colour = "black") + theme(legend.position="none")
+#ggplot(df, aes(month, fill = "count")) + geom_histogram(binwidth = 1, colour = "black") + theme(legend.position="none")
+cat("\\label{month-of-year}\n")
+cat(str_c("\\caption{Histogram of number of \\emph{Histoplasmosis duboisii} ",
+          "cases in baboons for each day (left) and month (right) of the year ",
+          "with the first case seen ",
+          "on ",
+          strftime(min(df$first_noted), format = '%D'), " and the last case ",
+          "seen on ", strftime(max(df$first_noted), format = '%D'), ".}\n"))
+cat("\\end{figure}\n")
+
+@
+<<wrapup>>=
+elapsed_time <- get_elapsed_time_str(start_time)
+@
+\clearpage
+The current date and time is \Sexpr{Sys.time()}. The processing time for
+this document was \Sexpr{elapsed_time}
+
+<<session-info, echo = TRUE, include = TRUE>>=
+sessionInfo()
+
+@
+
+\end{document}
