@@ -1,0 +1,14 @@
+Package: histoplasmosisr
+Title: Analyze Histoplasmosis duboisii infections in baboons
+Version: 0.1
+Authors@R: c(person("R. Mark", "Sharp", role = c("aut", "cre"), email =
+    "msharp@TxBiomed.org"), person("Priscilla C.", "Williams", role = "aut",
+    email = "pwilliams@TxBiomed.org"))
+Description: The purpose of this package is to provide an exploratory data
+    analysis of animals infected with Histoplasmosis duboisii provided by Dr.
+    Ed Dick.
+Depends:
+    R (>= 3.1.1)
+License: GPL-2
+LazyData: true
+VignetteBuilder: knitr
