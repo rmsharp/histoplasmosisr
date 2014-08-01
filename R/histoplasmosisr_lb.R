@@ -125,3 +125,63 @@ get_days_single <- function(id, new_df) {
   length(new_df$id[new_df$id == id & new_df$single == 1])
 }
 
+#' Returns a dataframe with the Id, date, and the number of males and females
+#' of a specified species on that date.
+#' 
+#' @param conn database connection object
+#' @param affected_df dataframe containing data about affected animals (e.g.,
+#' id, sex, date Histoplasmosis was first noted, etc.)
+#' @param target_date_df dataframe with the dates (target_date)
+#' @param arc_species_code of all animals being counted.
+get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
+  target_date_df <- data.frame(target_date = unique(affected_df$first_noted))
+  sql <- list (
+    "DROP TABLE #temp",
+    "DROP TABLE #tempm",
+    "DROP TABLE #tempf",
+    "CREATE TABLE #temp (target_date date, males int, females int)",
+    "CREATE TABLE #tempm (target_date date, males int)",
+    "CREATE TABLE #tempf (target_date date, females int)",
+    str_c(
+      "INSERT INTO #tempm (target_date, males)
+      SELECT dd.target_date, count(dd.target_date)
+      FROM daily_demo AS dd
+      WHERE target_date in ('", 
+        vector2string(strftime(target_date_df$target_date, format = "%m/%d/%Y"), 
+                     SS = "', '"), "')
+        AND sex = 'M'
+      GROUP by target_date"),
+    str_c(
+      "INSERT INTO #tempf (target_date, females)
+      SELECT dd.target_date, count(dd.target_date)
+      FROM daily_demo AS dd
+      WHERE target_date in ('", 
+        vector2string(strftime(target_date_df$target_date, format = "%m/%d/%Y"), 
+                      SS = "', '"), "')
+        AND sex = 'F'
+      GROUP by target_date"),
+    str_c(
+      "INSERT INTO #temp (target_date, males, females)
+      SELECT m.target_date, m.males, f.females 
+      FROM #tempm m 
+      INNER JOIN #tempf f ON m.target_date = f.target_date "))
+  sqlOutput <- lapply(sql, function(x) sqlQuery(conn, x))
+  
+  male_female_ratio_df <- sqlQuery(conn, str_c(
+    "SELECT *
+    FROM #temp"), stringsAsFactors = FALSE)
+  male_female_ratio_df$target_date <- 
+    as.POSIXct(male_female_ratio_df$target_date)
+  merge(affected_df, male_female_ratio_df, by.x = "first_noted", by.y = "target_date")
+}
+
+#' 
+#' specified for each animal in the dataframe
+# \item Housing type (corral, gang, single)
+# \item Housing location (near vegetation or away from vegetation)
+# \item Housing surface types (highly porous rock and concrete or 
+#                              Stonehard surfaces)
+# \item Seasons of the year
+# \item Birth location
+# \item Days in groups
+# \item Over time (has there been and increase or decrease in incidence).
