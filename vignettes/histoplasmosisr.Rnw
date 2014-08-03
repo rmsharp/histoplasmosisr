@@ -1,4 +1,7 @@
-<<setup_timer, echo = FALSE, include = FALSE>>=
+<!--
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Histoplasmosis analysis package}
+--><<setup_timer, echo = FALSE, include = FALSE>>=
 ## should be in a "source" file
 start_time <- proc.time()
 ## stringr, lubridate, and XLConnect are attached by r_utility_function.R, 
@@ -69,7 +72,7 @@ source("../R/histoplasmosisr_lb.R")
 % See the ``Memoir customise'' template for some common customisations
 % Don't forget to read the Memoir manual: memman.pdf
 
-\title{Histoplasmosis data for specified animals}
+\title{\emph{Histoplasmosis duboisii} Data for Specified Animals}
 \author{SNPRC -- Primate Records Database Team}
 \date{\today}
 
