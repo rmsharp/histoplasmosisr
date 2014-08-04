@@ -63,8 +63,11 @@ make_new_df <- function(conn, X_ed_hist) {
 #' @param conn database connection object
 define_gang_locations <- function(conn) {
   location <- sqlQuery(conn, str_c(
-  "SELECT vl.location from valid_locations vl ",
-  "WHERE vl.description like '%gang%' "))$location
+  "SELECT vl.location from valid_locations vl 
+  WHERE (vl.description like '%gang%' 
+    OR vl.description like '%breeding%'
+    OR vl.location >= 114 and vl.location < 115)
+    AND vl.location < 200 "))$location
   location[location >= 1]
 }
 

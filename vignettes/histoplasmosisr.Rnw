@@ -1,7 +1,8 @@
-<!--
+%<!--
 %\VignetteEngine{knitr::knitr}
 %\VignetteIndexEntry{Histoplasmosis analysis package}
---><<setup_timer, echo = FALSE, include = FALSE>>=
+%-->
+<<setup_timer, echo = FALSE, include = FALSE>>=
 ## should be in a "source" file
 start_time <- proc.time()
 ## stringr, lubridate, and XLConnect are attached by r_utility_function.R, 
@@ -23,8 +24,8 @@ require(RODBC, quietly = TRUE)
 require(ggplot2, quietly = TRUE)
 require(reshape2, quietly = TRUE)
 suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
-source("../R/histoplasmosisr_lb.R")
-
+#source("../R/histoplasmosisr_lb.R")
+require(histoplasmosis_lb, quietly = TRUE)
 @
 \documentclass[12pt,a4paper,article]{memoir} % for a short document
 \usepackage{amssymb,amsmath}
@@ -67,7 +68,7 @@ source("../R/histoplasmosisr_lb.R")
 \newcommand{\rpackage}[1]{\textit{#1}}
 \usepackage[top = 1.5in, bottom = 1.5in, left = 1in, right = 0.75in]{geometry}
 \usepackage{upquote} % to convert funny quotes to straight quotes
-\setbox\hlnormalsizeboxsinglequote=\hbox{\normalsize\verb.'.}%
+%\setbox\hlnormalsizeboxsinglequote=\hbox{\normalsize\verb.'.}%
 
 % See the ``Memoir customise'' template for some common customisations
 % Don't forget to read the Memoir manual: memman.pdf
@@ -212,11 +213,6 @@ create_wkbk("../reports/histo_animal_ages_at_first_noted_date.xlsx", list(df),
             sheetnames = "birth_dates_ages")
 
 @
-<<get_loc_data, echo = FALSE, include = FALSE>>=
-#possible_durations <- c("month", "year", "day", "week")
-#timeframe <- "2 weeks" # c("1 year", "2 year", "1 month", "30 days")
-#date_num <- as.numeric(unlist(strsplit(timeframe, " "))[1])
-#date_str <- possible_durations[str_detect(timeframe, possible_durations)]
 <<create_ed_hist>>=
 X_ed_hist <- "X_ed_hist"
 drop_status <- sqlQuery(conn, str_c("drop table ", X_ed_hist))
@@ -275,7 +271,6 @@ ggplot(df, aes(age, fill = sex)) + geom_histogram(binwidth = 1) +
 #  grid.pack("df", ggplotGrob(age_freq_plot)) 
 #  grid.pack("df", textGrob("a new subtitle"), side="bottom") 
 
-
 ggplot(melt_df, aes(x= value, fill=sex)) + 
    geom_bar(binwidth = 250) + facet_grid (variable ~ sex) + xlab("") + 
    scale_fill_discrete("loc_grp")
@@ -284,7 +279,8 @@ ggplot(melt_df, aes(x= value, fill=sex)) +
 #   geom_bar(binwidth = round(max(melt_df$age), digits = -1)/10) + #facet_grid (variable ~ sex) + xlab("") + coord_flip() + 
 #   scale_fill_discrete("loc_grp")
 
-
+# 408 is in this other_locations and is a group housing area. How do we classify
+# it
 other_locations <- unique(new_df$location[new_df$gang == 0 & new_df$corral == 0 
                                           & new_df$single == 0])
 
@@ -292,6 +288,9 @@ other_locations <- unique(new_df$location[new_df$gang == 0 & new_df$corral == 0
 @
 Still unaccounted for in the gang cage, corral, and single housing designations
 are \Sexpr{get_and_or_list(sort(other_locations[other_locations >= 1.0]))}.
+
+Location 408 is in this other_locations and is a group housing area. 
+How do we classify it?
 
 <<plot-hist, fig.height = 6, fig.width=8, results = 'asis', include = TRUE>>=
 par(mfrow = c(1, 2))
@@ -313,12 +312,10 @@ cat("\\end{figure}\n")
 <<get-male-female-ratios>>=
 wt_conn <- odbcConnect("prd-prod-wh-animal-sa")
 df <-get_male_female_ratio(wt_conn, df, arc_species_code)
-affected_males <- 
-  length(male_female_ratio_df$sex[male_female_ratio_df$sex == 'M'])
-affected_females <- 
-  length(male_female_ratio_df$sex[male_female_ratio_df$sex == 'F'])
-total_males <- sum(male_female_ratio_df$males)
-total_females <- sum(male_female_ratio_df$females)
+affected_males <- length(df$sex[df$sex == 'M'])
+affected_females <- length(df$sex[df$sex == 'F'])
+total_males <- sum(df$males)
+total_females <- sum(df$females)
 chisq_sex <- chisq.test(x = matrix(c(affected_males,
                                      affected_females,
                                      total_males,
@@ -326,7 +323,7 @@ chisq_sex <- chisq.test(x = matrix(c(affected_males,
 odbcClose(wt_conn)
 
 @
-<<print-sex-ratio-results, results='as.is', include = TRUE>>=
+
 There were \Sexpr{affected_males} affected males and \Sexpr{affected_females}
 in the \Sexpr{nrow(df)} animals with Histoplasmosis. We counted the number of
 males and females on the first day each animal was noted to have Histoplasmosis.
@@ -336,9 +333,19 @@ there were \Sexpr{df$males[1]} male and \Sexpr{df$females[1]} female baboons.
 Thus, the probability that \Sexpr{df$id[1]} was a male was 
 \Sexpr{round(df$males[1] / (df$males[1] + df$females[1]), 3)}. \Sexpr{df$id[1]}
 was a 
-\Sexpr{ifelse(df$sex[1] == 'M', "male", "female")}
+\Sexpr{ifelse(df$sex[1] == 'M', "male", "female")}. One way we have looked 
+for a differential risk (increase in susceptibility to histoplasmosis)
+between the sexes was to compare the ratio of affected males 
+(\Sexpr{affected_males}) to affected females (\Sexpr{affected_females})
+to the ratio of the sum of all males present on the first day each animal was
+noted to have Histoplasmosis 
+(\Sexpr{total_males}) and the sum of all females present on the 
+first day each animal was noted to have Histoplasmosis (\Sexpr{total_females})
+using a chi-square analysis with Yates' continuity correction. The probability
+that there is no difference in the ratios is 
+\Sexpr{signif(chisq_sex$p.value, 4)}.
 
-@
+
 <<wrapup>>=
 elapsed_time <- get_elapsed_time_str(start_time)
 @
