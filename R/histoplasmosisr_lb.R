@@ -3,6 +3,7 @@
 #' @param conn database connection object
 #' @param X_ed_hist character vector of length one with the name of the table to 
 #' create
+#' @export
 create_X_ed_hist <- function (conn, X_ed_hist) {
   create_status <- sqlQuery(conn, str_c(
     "CREATE TABLE ", X_ed_hist, " ( 
@@ -16,6 +17,7 @@ create_X_ed_hist <- function (conn, X_ed_hist) {
 #' @param conn database connection object
 #' @param X_ed_hist name of database table receiving inserts
 #' @param df dataframe containing data being inserted.
+#' @export
 insert_id_first_noted <- 
   function(conn, X_ed_hist, df) {
     for (i in seq_along(df$id)) {
@@ -34,6 +36,7 @@ insert_id_first_noted <-
 #' @param conn database connection object
 #' @param X_ed_hist name of database table with Ids and dates Histoplasmosis
 #' was first noted.
+#' @export
 make_new_df <- function(conn, X_ed_hist) {
   sqlQuery(conn, str_c(
     "SELECT c.target_date , ",
@@ -61,6 +64,7 @@ make_new_df <- function(conn, X_ed_hist) {
 #' housing structures.
 #' 
 #' @param conn database connection object
+#' @export
 define_gang_locations <- function(conn) {
   location <- sqlQuery(conn, str_c(
   "SELECT vl.location from valid_locations vl 
@@ -75,6 +79,7 @@ define_gang_locations <- function(conn) {
 #' housing structures.
 #' 
 #' @param conn database connection object
+#' @export
 define_corral_locations <- function(conn) {
   corral <- sqlQuery(conn, str_c(
     "SELECT vl.location from valid_locations vl ",
@@ -86,6 +91,7 @@ define_corral_locations <- function(conn) {
 #' housing structures.
 
 #' @param conn database connection object
+#' @export
 define_single_locations <- function(conn) {
   group <- sqlQuery(conn, str_c(
     "SELECT vl.location from valid_locations vl ",
@@ -97,6 +103,7 @@ define_single_locations <- function(conn) {
 #' of corral locations, and a vector of single locations.
 #' 
 #' @param conn database connection object
+#' @export
 get_housing_types <- function(conn) {
   list(gang = define_gang_locations(conn),
        corral = define_corral_locations(conn),
@@ -107,6 +114,7 @@ get_housing_types <- function(conn) {
 #' 
 #' @param id animal id
 #' @param new_df dataframe containing the animal and location data
+#' @export
 get_days_gang <- function(id, new_df) {
   length(new_df$id[new_df$id == id & new_df$gang == 1])
 }
@@ -115,6 +123,7 @@ get_days_gang <- function(id, new_df) {
 #' 
 #' @param id animal id
 #' @param new_df dataframe containing the animal and location data
+#' @export
 get_days_corral <- function(id, new_df) {
   length(new_df$id[new_df$id == id & new_df$corral == 1])
 }
@@ -124,6 +133,7 @@ get_days_corral <- function(id, new_df) {
 #' 
 #' @param id animal id
 #' @param new_df dataframe containing the animal and location data
+#' @export
 get_days_single <- function(id, new_df) {
   length(new_df$id[new_df$id == id & new_df$single == 1])
 }
@@ -136,6 +146,7 @@ get_days_single <- function(id, new_df) {
 #' id, sex, date Histoplasmosis was first noted, etc.)
 #' @param target_date_df dataframe with the dates (target_date)
 #' @param arc_species_code of all animals being counted.
+#' @export
 get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
   target_date_df <- data.frame(target_date = unique(affected_df$first_noted))
   sql <- list (

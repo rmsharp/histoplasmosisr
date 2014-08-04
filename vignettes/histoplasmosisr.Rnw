@@ -25,7 +25,7 @@ require(ggplot2, quietly = TRUE)
 require(reshape2, quietly = TRUE)
 suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
 #source("../R/histoplasmosisr_lb.R")
-require(histoplasmosis_lb, quietly = TRUE)
+require(histoplasmosisr, quietly = TRUE)
 @
 \documentclass[12pt,a4paper,article]{memoir} % for a short document
 \usepackage{amssymb,amsmath}
