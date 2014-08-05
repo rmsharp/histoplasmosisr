@@ -1,3 +1,36 @@
+#' Returns dataframe with Ids, the date, the day of the year, 
+#' and the month of the year (as an integer)
+#' each animal was first noted to have histoplasmosis.
+#' 
+#' @param histo_data name and path of the Excel file containing animal Ids
+#' and the date each animal was noted to have histoplasmosis.
+#' @export
+get_affected_animals_df <- function (histo_data) {
+  df <- readWorksheet(histo_data, sheet = 1)
+  names(df) <-  c("id", "first_noted")
+  
+  df$id <- blank_fill_ids(df$id)
+  df$day_of_year <- as.integer(strftime(df$first_noted, format = '%j'))
+  df$month <- as.integer(strftime(df$first_noted, format = '%m'))
+  df
+}
+#' Returns dataframe with Ids of animals that were in a corral within 10 
+#' days of being first seen with histoplasmosis.
+#' 
+#' @param conn database connection object
+#' @export
+roundup_animals <- function(conn) {
+  sql <- str_c(
+    "SELECT x.id FROM ", X_ed_hist, " x
+    WHERE x.id in (select l.id from location l
+      WHERE l.move_date_tm < dateadd(day, -10, x.first_noted)
+        AND l.exit_date_tm > dateadd(day, -10, x.first_noted)
+        AND cast(l.exit_date_tm as DATE) <= x.first_noted 
+        AND l.location in (", 
+        vector2string(define_corral_locations(conn), SS = ", "), ") )")
+  not_roundup_df <- sqlQuery(conn, sql, stringsAsFactors = FALSE)
+  not_roundup_df
+}
 #' Creates ed_hist database table with id and first_noted columns
 #' 
 #' @param conn database connection object
@@ -7,7 +40,7 @@
 create_X_ed_hist <- function (conn, X_ed_hist) {
   create_status <- sqlQuery(conn, str_c(
     "CREATE TABLE ", X_ed_hist, " ( 
-      id VARCHAR(6),
+      id CHAR(6),
       first_noted DATE) "))
 }              
 
@@ -67,7 +100,7 @@ make_new_df <- function(conn, X_ed_hist) {
 #' @export
 define_gang_locations <- function(conn) {
   location <- sqlQuery(conn, str_c(
-  "SELECT vl.location from valid_locations vl 
+  "SELECT vl.location from animal.dbo.valid_locations vl 
   WHERE (vl.description like '%gang%' 
     OR vl.description like '%breeding%'
     OR vl.location >= 114 and vl.location < 115)
@@ -82,7 +115,7 @@ define_gang_locations <- function(conn) {
 #' @export
 define_corral_locations <- function(conn) {
   corral <- sqlQuery(conn, str_c(
-    "SELECT vl.location from valid_locations vl ",
+    "SELECT vl.location from animal.dbo.valid_locations vl ",
     "WHERE vl.description like '%corral%' "))
   corral$location[corral$location >= 1]
 }
@@ -94,7 +127,7 @@ define_corral_locations <- function(conn) {
 #' @export
 define_single_locations <- function(conn) {
   group <- sqlQuery(conn, str_c(
-    "SELECT vl.location from valid_locations vl ",
+    "SELECT vl.location from animal.dbo.valid_locations vl ",
     "WHERE vl.group_housing_flag = 'N' "))
   group$location[group$location >= 1]
 }
@@ -189,6 +222,57 @@ get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
   merge(affected_df, male_female_ratio_df, by.x = "first_noted", by.y = "target_date")
 }
 
+#' Returns relative risk for a cohort study. 
+#' 
+#' Code adapted from 
+#' http://a-little-book-of-r-for-biomedical-statistics.readthedocs.org/en/latest/src/biomedicalstats.html
+#' @param mymatrix 2 by 2 matrix
+#' @param alpha Type 1 error rate
+#' @param reference_row (unexposed or control group)
+#' @export
+calc_relative_risk <- function(mymatrix, alpha=0.05, reference_row=2)
+{
+  numrow <- nrow(mymatrix)
+  myrownames <- rownames(mymatrix)
+  relative_risk <- numeric(numrow)
+  lowervalue <- numeric(numrow)
+  uppervalue <- numeric(numrow)
+  for (i in 1:numrow)
+  {
+    rowname <- myrownames[i]
+    disease_unexposed <- mymatrix[reference_row,1]
+    control_unexposed <- mymatrix[reference_row,2]
+    if (i != reference_row)
+    {
+      disease_exposed <- mymatrix[i,1]
+      control_exposed <- mymatrix[i,2]
+      tot_exposed <- disease_exposed + control_exposed
+      tot_unexposed <- disease_unexposed + control_unexposed
+      prob_disease_given_exposed <- disease_exposed/tot_exposed
+      prob_disease_given_unexposed <- disease_unexposed/tot_unexposed
+      
+      # calculate the relative risk
+      relative_risk[i] <- prob_disease_given_exposed/prob_disease_given_unexposed
+      #print(paste("category =", rowname, ", relative risk = ",relative_risk))
+      
+      # calculate a confidence interval
+      confidence_level <- (1 - alpha)*100
+      sigma <- sqrt((1/disease_exposed) - (1/tot_exposed) +
+                      (1/disease_unexposed) - (1/tot_unexposed))
+      # sigma is the standard error of estimate of log of relative risk
+      z <- qnorm(1-(alpha/2))
+      lowervalue[i] <- relative_risk[i] * exp(-z * sigma)
+      uppervalue[i] <- relative_risk[i] * exp( z * sigma)
+      #print(paste("category =", rowname, ", ", confidence_level,
+      #            "% confidence interval = [",lowervalue,",",uppervalue,"]"))
+    }
+  }
+  list(RR = relative_risk[-reference_row], 
+       lowervalue = lowervalue[-reference_row], 
+       uppervalue = uppervalue[-reference_row],
+       alpha = rep(alpha, numrow - 1),
+       rownames = myrownames[-reference_row])
+}
 #' 
 #' specified for each animal in the dataframe
 # \item Housing type (corral, gang, single)

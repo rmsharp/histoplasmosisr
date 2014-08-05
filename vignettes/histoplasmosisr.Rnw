@@ -12,9 +12,9 @@ require(rmsutilityr, quietly = TRUE)
 require(grid, quietly = TRUE)
 
 if (str_detect(Sys.info()['user'], 'msharp')) {
-  source("~/Documents/Development/R/r_workspace/animal_db_lb.R")
+ source("~/Documents/Development/R/r_workspace/animal_db_lb.R")
 } else {
-  source("~/Development/Mark/R/animal_db_lb.R") 
+ source("~/Development/Mark/R/animal_db_lb.R") 
 }
 
 @
@@ -23,9 +23,11 @@ require(xtable, quietly = TRUE)
 require(RODBC, quietly = TRUE)
 require(ggplot2, quietly = TRUE)
 require(reshape2, quietly = TRUE)
+require(lubridate, quietly = TRUE)
 suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
 #source("../R/histoplasmosisr_lb.R")
 require(histoplasmosisr, quietly = TRUE)
+
 @
 \documentclass[12pt,a4paper,article]{memoir} % for a short document
 \usepackage{amssymb,amsmath}
@@ -188,12 +190,7 @@ opts_chunk$set(echo = FALSE, cache = FALSE, include = FALSE, tidy = FALSE)
 filename <- "../data/Copy of Histo Boon Sharp 20140716.xls"
 histo_data <- loadWorkbook(filename)
 arc_species_code = 'PC'
-df <- readWorksheet(histo_data, sheet = 1)
-names(df) <-  c("id", "first_noted")
-
-df$id <- blank_fill_ids(df$id)
-df$day_of_year <- as.integer(strftime(df$first_noted, format = '%j'))
-df$month <- as.integer(strftime(df$first_noted, format = '%m'))
+df <- get_affected_animals_df(histo_data)
 
 ids_str <- vector2string(vector = unique(df$id))
 
@@ -222,6 +219,7 @@ create_X_ed_hist(conn, X_ed_hist)
 insert_id_first_noted(conn, X_ed_hist, df)
 new_df <- make_new_df(conn, X_ed_hist)
 housing_types <- get_housing_types(conn)
+roundup_animals_df <- roundup_animals(conn)
 
 odbcClose(conn)
 
@@ -295,8 +293,10 @@ How do we classify it?
 <<plot-hist, fig.height = 6, fig.width=8, results = 'asis', include = TRUE>>=
 par(mfrow = c(1, 2))
 cat("\\begin{figure}\n")
-hist(df$day_of_year, main = '', xlab = "Day of Year")
-hist(df$month, main = '', xlab = "Month of Year")
+no_roundup_df <- df[!df$id %in% roundup_animals_df$id, ]
+hist(no_roundup_df$day_of_year, main = '', xlab = "Day of Year", breaks = 60,
+     prob=TRUE)
+hist(no_roundup_df$month, main = '', xlab = "Month of Year", breaks = 0:12)
 #ggplot(df, aes(day_of_year, fill = "count")) + geom_histogram(binwidth = 25, colour = "black") + theme(legend.position="none")
 #ggplot(df, aes(month, fill = "count")) + geom_histogram(binwidth = 1, colour = "black") + theme(legend.position="none")
 cat("\\label{month-of-year}\n")
@@ -304,8 +304,8 @@ cat(str_c("\\caption{Histogram of number of \\emph{Histoplasmosis duboisii} ",
           "cases in baboons for each day (left) and month (right) of the year ",
           "with the first case seen ",
           "on ",
-          strftime(min(df$first_noted), format = '%D'), " and the last case ",
-          "seen on ", strftime(max(df$first_noted), format = '%D'), ".}\n"))
+          strftime(min(no_roundup_df$first_noted), format = '%D'), " and the last case ",
+          "seen on ", strftime(max(no_roundup_df$first_noted), format = '%D'), ".}\n"))
 cat("\\end{figure}\n")
 
 @
@@ -316,34 +316,46 @@ affected_males <- length(df$sex[df$sex == 'M'])
 affected_females <- length(df$sex[df$sex == 'F'])
 total_males <- sum(df$males)
 total_females <- sum(df$females)
-chisq_sex <- chisq.test(x = matrix(c(affected_males,
-                                     affected_females,
-                                     total_males,
-                                     total_females), nrow = 2))
+sex_ratio_m <- matrix(c(affected_females,
+                        total_females,
+                        affected_males,
+                        total_males), nrow = 2)
+chisq_sex <- chisq.test(x = sex_ratio_m)
 odbcClose(wt_conn)
 
-@
+sex_rr <- calc_relative_risk(sex_ratio_m,alpha=0.01)
 
-There were \Sexpr{affected_males} affected males and \Sexpr{affected_females}
-in the \Sexpr{nrow(df)} animals with Histoplasmosis. We counted the number of
-males and females on the first day each animal was noted to have Histoplasmosis.
-Thus animal \Sexpr{df$id[1]} was noted to have Histoplasmosis first on 
+@
+\subsection{Increase Relative Risk of Histoplasmosis in Female Baboons}
+There were \Sexpr{affected_males} affected males and \Sexpr{affected_females} 
+females
+in the \Sexpr{nrow(df)} baboons with histoplasmosis. We counted the number of
+males and females on the first day each animal was noted to have histoplasmosis.
+Thus animal \Sexpr{df$id[1]} was noted to have histoplasmosis first on 
 \Sexpr{strftime(df$first_noted[1], format = "%m-%d-%Y")}. On that same day
 there were \Sexpr{df$males[1]} male and \Sexpr{df$females[1]} female baboons.
 Thus, the probability that \Sexpr{df$id[1]} was a male was 
 \Sexpr{round(df$males[1] / (df$males[1] + df$females[1]), 3)}. \Sexpr{df$id[1]}
 was a 
 \Sexpr{ifelse(df$sex[1] == 'M', "male", "female")}. One way we have looked 
-for a differential risk (increase in susceptibility to histoplasmosis)
-between the sexes was to compare the ratio of affected males 
-(\Sexpr{affected_males}) to affected females (\Sexpr{affected_females})
-to the ratio of the sum of all males present on the first day each animal was
-noted to have Histoplasmosis 
-(\Sexpr{total_males}) and the sum of all females present on the 
-first day each animal was noted to have Histoplasmosis (\Sexpr{total_females})
+for a difference in relative risk 
+(difference in susceptibility to histoplasmosis)
+between the sexes was to compare the ratio of affected females 
+(\Sexpr{affected_females})
+to affected males 
+(\Sexpr{affected_males})
+to the ratio of the sum of all females present on the first day each animal was
+noted to have histoplasmosis 
+(\Sexpr{format(total_females, big.mark = ",", scientific = FALSE)}) 
+and the sum of all males present on the 
+first day each animal was noted to have histoplasmosis 
+(\Sexpr{format(total_males, big.mark=",", scientific=FALSE)})
 using a chi-square analysis with Yates' continuity correction. The probability
-that there is no difference in the ratios is 
-\Sexpr{signif(chisq_sex$p.value, 4)}.
+that there is no association between sex and being diagnosed with histoplasmosis
+is \Sexpr{signif(chisq_sex$p.value, 4)}. The relative risk of a female 
+being diagnosed with histoplasmosis is \Sexpr{signif(sex_rr$RR, 3)} with
+a \Sexpr{round(100 * (1 - sex_rr$alpha), 0)} percent confidence interval of 
+\Sexpr{signif(sex_rr$lowervalue, 3)} -- \Sexpr{signif(sex_rr$uppervalue, 3)}.
 
 
 <<wrapup>>=
