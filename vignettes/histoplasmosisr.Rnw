@@ -25,9 +25,9 @@ require(ggplot2, quietly = TRUE)
 require(reshape2, quietly = TRUE)
 require(lubridate, quietly = TRUE)
 suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
-#source("../R/ed_histo_location_lb.R")
+source("../R/ed_histo_location_lb.R")
 #source("../R/histoplasmosisr_lb.R")
-require(histoplasmosisr, quietly = TRUE)
+#require(histoplasmosisr, quietly = TRUE)
 
 @
 \documentclass[12pt,a4paper,article]{memoir} % for a short document
@@ -262,17 +262,17 @@ percent_animals_ever_single <-
 <<myplot, fig.height = 6, fig.width=8, include = TRUE, results = "asis", echo = FALSE>>=
 #hist(df$age)
 
-ggplot(df, aes(age, fill = sex)) + geom_histogram(binwidth = 1) + 
-  facet_grid(~sex , 
-             #margins = TRUE, 
-             scales = "free")
+# ggplot(df, aes(age, fill = sex)) + geom_histogram(binwidth = 1) + 
+#   facet_grid(~sex , 
+#              #margins = TRUE, 
+#              scales = "free")
+# ggplot(melt_df, aes(x= value, fill=sex)) + 
+#    geom_bar(binwidth = 250) + facet_grid (variable ~ sex) + xlab("") + 
+#    scale_fill_discrete("loc_grp")
+
 #  grid.frame(name="df") 
 #  grid.pack("df", ggplotGrob(age_freq_plot)) 
 #  grid.pack("df", textGrob("a new subtitle"), side="bottom") 
-
-ggplot(melt_df, aes(x= value, fill=sex)) + 
-   geom_bar(binwidth = 250) + facet_grid (variable ~ sex) + xlab("") + 
-   scale_fill_discrete("loc_grp")
 
 #ggplot(melt_df, aes(x= age, fill=sex)) + 
 #   geom_bar(binwidth = round(max(melt_df$age), digits = -1)/10) + #facet_grid (variable ~ sex) + xlab("") + coord_flip() + 
@@ -301,12 +301,16 @@ hist(no_roundup_df$month, main = '', xlab = "Month of Year", breaks = 0:12)
 #ggplot(df, aes(day_of_year, fill = "count")) + geom_histogram(binwidth = 25, colour = "black") + theme(legend.position="none")
 #ggplot(df, aes(month, fill = "count")) + geom_histogram(binwidth = 1, colour = "black") + theme(legend.position="none")
 cat("\\label{month-of-year}\n")
-cat(str_c("\\caption{Histogram of number of \\emph{Histoplasmosis duboisii} ",
-          "cases in baboons for each day (left) and month (right) of the year ",
-          "with the first case seen ",
-          "on ",
-          strftime(min(no_roundup_df$first_noted), format = '%D'), " and the last case ",
-          "seen on ", strftime(max(no_roundup_df$first_noted), format = '%D'), ".}\n"))
+cat(str_c("\\caption{Histogram of number of \\emph{Histoplasmosis duboisii} 
+          cases in baboons for each day (left) and month (right) of the year 
+          with the first case seen on ",
+          strftime(min(no_roundup_df$first_noted), format = '%D'), 
+          " and the last case seen on ", 
+          strftime(max(no_roundup_df$first_noted), format = '%D'), 
+          ". The ", nrow(roundup_animals_df), " animals that were 
+          observed during a semiannual roundup were 
+          removed from the graphs since they provide an artificial 
+          seasonality to the distribution of cases.}\n"))
 cat("\\end{figure}\n")
 
 @
