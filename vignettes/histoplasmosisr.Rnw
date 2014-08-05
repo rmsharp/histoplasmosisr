@@ -25,6 +25,7 @@ require(ggplot2, quietly = TRUE)
 require(reshape2, quietly = TRUE)
 require(lubridate, quietly = TRUE)
 suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
+#source("../R/ed_histo_location_lb.R")
 #source("../R/histoplasmosisr_lb.R")
 require(histoplasmosisr, quietly = TRUE)
 
