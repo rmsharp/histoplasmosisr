@@ -70,8 +70,8 @@ insert_id_first_noted <-
 #' @param X_ed_hist name of database table with Ids and dates Histoplasmosis
 #' was first noted.
 #' @export
-make_new_df <- function(conn, X_ed_hist) {
-  sqlQuery(conn, str_c(
+make_daily_df <- function(conn, X_ed_hist) {
+  daily_df <- sqlQuery(conn, str_c(
     "SELECT c.target_date , ",
     "l.location , ",
     "ad.id ",
@@ -91,6 +91,31 @@ make_new_df <- function(conn, X_ed_hist) {
     "AND c.target_date BETWEEN l.move_date_tm ",
     "AND ISNULL(l.exit_date_tm, ",
     "h.first_noted) ") , stringsAsFactors = FALSE)
+  housing_types <- get_housing_types(conn)
+  daily_df$gang <- ifelse(daily_df$location %in% housing_types$gang, 1, 0)
+  daily_df$corral <- ifelse(daily_df$location %in% housing_types$corral, 1, 0)
+  daily_df$single <- ifelse(daily_df$location %in% housing_types$single, 1, 0)
+  daily_df  
+}
+
+#' Returns dataframw with the days_alive, days_gang, percent_gang, days_corral,
+#' percent_corral, days_single, and percent_single columns defined.
+#' 
+#' @param df dataframe being used with one record per animal that will take 
+#' sums and percents.
+#' @param daily_df dataframe that has one record per day for each id from birth
+#' to first_noted date.
+#' @export
+add_location_type_percents <- function (df, daily_df) {
+  df$days_alive <- 1 + (df$first_noted - df$birth_date) / edays(1)
+  
+  df$days_gang <- sapply(df$id, FUN = function(id) {get_days_gang(id, daily_df)})
+  df$percent_gang <- (df$days_gang / df$days_alive) * 100
+  df$days_corral <- sapply(df$id, FUN = function(id) {get_days_corral(id, daily_df)})
+  df$percent_corral <- (df$days_corral / df$days_alive) * 100
+  df$days_single <- sapply(df$id, FUN = function(id) {get_days_single(id, daily_df)})
+  df$percent_single <- (df$days_single / df$days_alive) * 100
+  df
 }
 
 #' Returns a numeric vector with the locations that are classified as gang
@@ -104,7 +129,8 @@ define_gang_locations <- function(conn) {
   WHERE (vl.description like '%gang%' 
     OR vl.description like '%breeding%'
     OR vl.location >= 114 and vl.location < 115)
-    AND vl.location < 200 "))$location
+    AND vl.location < 200 
+    AND vl.location not in (100.00, 100.01, 100.02, 105.00)"))$location
   location[location >= 1]
 }
 
@@ -146,29 +172,29 @@ get_housing_types <- function(conn) {
 #' Returns the number of days a specific animal was in gang cages.
 #' 
 #' @param id animal id
-#' @param new_df dataframe containing the animal and location data
+#' @param daily_df dataframe containing the animal and location data
 #' @export
-get_days_gang <- function(id, new_df) {
-  length(new_df$id[new_df$id == id & new_df$gang == 1])
+get_days_gang <- function(id, daily_df) {
+  length(daily_df$id[daily_df$id == id & daily_df$gang == 1])
 }
 
 #' Returns the number of days a specific animal was in a corral.
 #' 
 #' @param id animal id
-#' @param new_df dataframe containing the animal and location data
+#' @param daily_df dataframe containing the animal and location data
 #' @export
-get_days_corral <- function(id, new_df) {
-  length(new_df$id[new_df$id == id & new_df$corral == 1])
+get_days_corral <- function(id, daily_df) {
+  length(daily_df$id[daily_df$id == id & daily_df$corral == 1])
 }
 
 #' Returns the number of days a specific animal was in a single housing 
 #' location.
 #' 
 #' @param id animal id
-#' @param new_df dataframe containing the animal and location data
+#' @param daily_df dataframe containing the animal and location data
 #' @export
-get_days_single <- function(id, new_df) {
-  length(new_df$id[new_df$id == id & new_df$single == 1])
+get_days_single <- function(id, daily_df) {
+  length(daily_df$id[daily_df$id == id & daily_df$single == 1])
 }
 
 #' Returns a dataframe with the Id, date, and the number of males and females
@@ -273,6 +299,8 @@ calc_relative_risk <- function(mymatrix, alpha=0.05, reference_row=2)
        alpha = rep(alpha, numrow - 1),
        rownames = myrownames[-reference_row])
 }
+
+#'
 #' 
 #' specified for each animal in the dataframe
 # \item Housing type (corral, gang, single)

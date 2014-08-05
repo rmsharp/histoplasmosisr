@@ -25,17 +25,17 @@ require(ggplot2, quietly = TRUE)
 require(reshape2, quietly = TRUE)
 require(lubridate, quietly = TRUE)
 suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
-source("../R/ed_histo_location_lb.R")
+#source("../R/ed_histo_location_lb.R")
 #source("../R/histoplasmosisr_lb.R")
-#require(histoplasmosisr, quietly = TRUE)
+require(histoplasmosisr, quietly = TRUE)
 
 @
 \documentclass[12pt,a4paper,article]{memoir} % for a short document
 \usepackage{amssymb,amsmath}
 \usepackage{hyperref} % URLs etc'
-%\usepackage{enumitem}
+\usepackage[shortlabels]{enumitem}
 \usepackage{pdflscape}
-\usepackage{enumerate}
+%\usepackage{enumerate}
 \usepackage{colortbl}
 \usepackage{longtable}
 \usepackage{float}
@@ -211,36 +211,20 @@ create_wkbk("../reports/histo_animal_ages_at_first_noted_date.xlsx", list(df),
             sheetnames = "birth_dates_ages")
 
 @
-<<create_ed_hist>>=
+<<create-ed-hist-and-daily-df>>=
 X_ed_hist <- "X_ed_hist"
 drop_status <- sqlQuery(conn, str_c("drop table ", X_ed_hist))
 expect_equal(drop_status, as.character(NULL))
 
 create_X_ed_hist(conn, X_ed_hist)
 insert_id_first_noted(conn, X_ed_hist, df)
-new_df <- make_new_df(conn, X_ed_hist)
-housing_types <- get_housing_types(conn)
-roundup_animals_df <- roundup_animals(conn)
-
-odbcClose(conn)
+daily_df <- make_daily_df(conn, X_ed_hist)
 
 @
-<<new_df_percentages, echo = FALSE, include = TRUE, results = "asis">>=
+<<get_df_percentages, echo = FALSE, include = TRUE, results = "asis">>=
+df <- add_location_type_percents(df, daily_df)
 
-#new_df$corral[new_df$location == "100.01" | new_df$location == "105.00"] #<- 1
-new_df$gang <- ifelse(new_df$location %in% housing_types$gang, 1, 0)
-new_df$corral <- ifelse(new_df$location %in% housing_types$corral, 1, 0)
-new_df$single <- ifelse(new_df$location %in% housing_types$single, 1, 0)
-
-df$days_alive <- (df$first_noted - df$birth_date) / edays(1)
-
-df$days_gang <- sapply(df$id, FUN = function(id) {get_days_gang(id, new_df)})
-df$percent_gang <- (df$days_gang / df$days_alive) * 100
-df$days_corral <- sapply(df$id, FUN = function(id) {get_days_corral(id, new_df)})
-df$percent_corral <- (df$days_corral / df$days_alive) * 100
-df$days_single <- sapply(df$id, FUN = function(id) {get_days_single(id, new_df)})
-df$percent_single <- (df$days_single / df$days_alive) * 100
-#merged_df <- merge(new_df, df, by = "id")
+#merged_df <- merge(daily_df, df, by = "id")
 df_to_be_melted <- subset(df, select = c("id", "age", "sex", "days_gang", 
                                          "days_corral", "days_single"))
 melt_df <- melt(df_to_be_melted, id = c("id", "sex", "age"))
@@ -278,40 +262,6 @@ percent_animals_ever_single <-
 #   geom_bar(binwidth = round(max(melt_df$age), digits = -1)/10) + #facet_grid (variable ~ sex) + xlab("") + coord_flip() + 
 #   scale_fill_discrete("loc_grp")
 
-# 408 is in this other_locations and is a group housing area. How do we classify
-# it
-other_locations <- unique(new_df$location[new_df$gang == 0 & new_df$corral == 0 
-                                          & new_df$single == 0])
-
-
-@
-Still unaccounted for in the gang cage, corral, and single housing designations
-are \Sexpr{get_and_or_list(sort(other_locations[other_locations >= 1.0]))}.
-
-Location 408 is in this other_locations and is a group housing area. 
-How do we classify it?
-
-<<plot-hist, fig.height = 6, fig.width=8, results = 'asis', include = TRUE>>=
-par(mfrow = c(1, 2))
-cat("\\begin{figure}\n")
-no_roundup_df <- df[!df$id %in% roundup_animals_df$id, ]
-hist(no_roundup_df$day_of_year, main = '', xlab = "Day of Year", breaks = 60,
-     prob=TRUE)
-hist(no_roundup_df$month, main = '', xlab = "Month of Year", breaks = 0:12)
-#ggplot(df, aes(day_of_year, fill = "count")) + geom_histogram(binwidth = 25, colour = "black") + theme(legend.position="none")
-#ggplot(df, aes(month, fill = "count")) + geom_histogram(binwidth = 1, colour = "black") + theme(legend.position="none")
-cat("\\label{month-of-year}\n")
-cat(str_c("\\caption{Histogram of number of \\emph{Histoplasmosis duboisii} 
-          cases in baboons for each day (left) and month (right) of the year 
-          with the first case seen on ",
-          strftime(min(no_roundup_df$first_noted), format = '%D'), 
-          " and the last case seen on ", 
-          strftime(max(no_roundup_df$first_noted), format = '%D'), 
-          ". The ", nrow(roundup_animals_df), " animals that were 
-          observed during a semiannual roundup were 
-          removed from the graphs since they provide an artificial 
-          seasonality to the distribution of cases.}\n"))
-cat("\\end{figure}\n")
 
 @
 <<get-male-female-ratios>>=
@@ -363,7 +313,73 @@ a \Sexpr{round(100 * (1 - sex_rr$alpha), 0)} percent confidence interval of
 \Sexpr{signif(sex_rr$lowervalue, 3)} -- \Sexpr{signif(sex_rr$uppervalue, 3)}.
 
 
+\subsection{Time Series Analysis for Seasonal Affects}
+<<plot-hist, fig.height = 6, fig.width=8, results = 'asis', include = TRUE>>=
+roundup_animals_df <- roundup_animals(conn)
+
+par(mfrow = c(1, 2))
+cat("\\begin{figure}\n")
+no_roundup_df <- df[!df$id %in% roundup_animals_df$id, ]
+hist(no_roundup_df$day_of_year, main = '', xlab = "Day of Year", breaks = 60,
+     prob=TRUE)
+hist(no_roundup_df$month, main = '', xlab = "Month of Year", breaks = 0:12)
+#ggplot(df, aes(day_of_year, fill = "count")) + geom_histogram(binwidth = 25, colour = "black") + theme(legend.position="none")
+#ggplot(df, aes(month, fill = "count")) + geom_histogram(binwidth = 1, colour = "black") + theme(legend.position="none")
+cat("\\label{month-of-year}\n")
+cat(str_c("\\caption{Histogram of number of \\emph{Histoplasmosis duboisii} 
+          cases in baboons for each day (left) and month (right) of the year 
+          with the first case seen on ",
+          strftime(min(no_roundup_df$first_noted), format = '%D'), 
+          " and the last case seen on ", 
+          strftime(max(no_roundup_df$first_noted), format = '%D'), 
+          ". The ", nrow(roundup_animals_df), " animals that were 
+          observed during a semiannual roundup were 
+          removed from the graphs since they provide an artificial 
+          seasonality to the distribution of cases.}\n"))
+cat("\\end{figure}\n")
+
+@
+
+<<analyse-housing-type>>=
+housing_types <- get_housing_types(conn)
+
+# 408 is in this other_locations and is a group housing area. How do we classify
+# it
+other_locations <- unique(daily_df$location[daily_df$gang == 0 & daily_df$corral == 0 
+                                          & daily_df$single == 0])
+
+
+ntrials <- 10 # 1000 is more realistic
+housing_type_threshold <- 0.9
+@
+\subsection{Test for Differences in Incidence Due to Location Type (corral, 
+gang, or single)}
+Still unaccounted for in the gang cage, corral, and single housing designations
+are \Sexpr{get_and_or_list(sort(other_locations[other_locations >= 1.0]))}.
+
+Location 408 is in this other_locations and is a group housing area. 
+How do we classify it?
+
+
+The test for differences in incidence of histoplasmosis among the location 
+types (corral, gang, and single) was done using Monte Carlo estimation.
+\begin{enumerate}[label = Step \arabic*.]
+\item Each animal's percent of time spent in the corral, gang, single, and other
+housing types were calculated. 
+\item The average percentages for corral, gang, and single were calculated
+for the affected animals.
+\item The frequencies for each housing type (corral, gang, single, and other)
+in use by baboons on the days each animal was first noted to 
+have histoplasmosis and within
+the age limits of the affected animals.
+\item Create a matrix where each row represents \Sexpr{ntrials} animals 
+corresponding to one of the incident cases and there is a row for all incident
+cases where at least \Sexpr{housing_type_threshold * 100} of the animal's days
+from birth to the day histoplasmosis was first noted are accounted for.
+\end{enumerate}
 <<wrapup>>=
+odbcClose(conn)
+
 elapsed_time <- get_elapsed_time_str(start_time)
 @
 \clearpage
