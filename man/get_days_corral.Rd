@@ -3,12 +3,12 @@
 \alias{get_days_corral}
 \title{Returns the number of days a specific animal was in a corral.}
 \usage{
-get_days_corral(id, new_df)
+get_days_corral(id, daily_df)
 }
 \arguments{
 \item{id}{animal id}
 
-\item{new_df}{dataframe containing the animal and location data}
+\item{daily_df}{dataframe containing the animal and location data}
 }
 \description{
 Returns the number of days a specific animal was in a corral.

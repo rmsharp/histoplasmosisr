@@ -4,12 +4,12 @@
 \title{Inserts ids and dates that correspond to when the Histoplasmosis infection
 was first noted.}
 \usage{
-insert_id_first_noted(conn, X_ed_hist, df)
+insert_id_first_noted(wt_conn, X_id_first_noted, df)
 }
 \arguments{
-\item{conn}{database connection object}
+\item{wt_conn}{database connection object}
 
-\item{X_ed_hist}{name of database table receiving inserts}
+\item{X_id_first_noted}{name of database table receiving inserts}
 
 \item{df}{dataframe containing data being inserted.}
 }

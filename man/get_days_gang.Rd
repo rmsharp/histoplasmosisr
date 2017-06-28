@@ -3,12 +3,12 @@
 \alias{get_days_gang}
 \title{Returns the number of days a specific animal was in gang cages.}
 \usage{
-get_days_gang(id, new_df)
+get_days_gang(id, daily_df)
 }
 \arguments{
 \item{id}{animal id}
 
-\item{new_df}{dataframe containing the animal and location data}
+\item{daily_df}{dataframe containing the animal and location data}
 }
 \description{
 Returns the number of days a specific animal was in gang cages.

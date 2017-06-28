@@ -4,12 +4,12 @@
 \title{Returns the number of days a specific animal was in a single housing
 location.}
 \usage{
-get_days_single(id, new_df)
+get_days_single(id, daily_df)
 }
 \arguments{
 \item{id}{animal id}
 
-\item{new_df}{dataframe containing the animal and location data}
+\item{daily_df}{dataframe containing the animal and location data}
 }
 \description{
 Returns the number of days a specific animal was in a single housing
