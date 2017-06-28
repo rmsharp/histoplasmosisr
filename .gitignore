@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 man/*
+man/*.Rd
 NAMESPACE
 vignettes/*
 !vignettes/*.Rnw
