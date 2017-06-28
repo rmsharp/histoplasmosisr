@@ -1,3 +1,9 @@
 .Rproj.user
 .Rhistory
 .RData
+man/*
+NAMESPACE
+vignettes/*
+!vignettes/*.Rnw
+reports/*
+*.MySCM*
