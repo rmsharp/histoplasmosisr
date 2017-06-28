@@ -1,0 +1,170 @@
+%<!--
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Histoplasmosis analysis package}
+%-->
+<<setup_timer, echo = FALSE, include = FALSE>>=
+## should be in a "source" file
+start_time <- proc.time()
+## stringr, lubridate, and XLConnect are attached by r_utility_function.R, 
+## but stringr is needed to find the file (str_detect()).
+require(stringr, quietly = TRUE)
+require(rmsutilityr, quietly = TRUE)
+
+if (str_detect(Sys.info()['user'], 'msharp')) {
+ source("~/Documents/Development/R/r_workspace/animal_db_lb.R")
+} else {
+ source("~/Development/Mark/R/animal_db_lb.R") 
+}
+
+@
+<<load_packages, echo = FALSE, include = FALSE>>=
+require(xtable, quietly = TRUE)
+require(RODBC, quietly = TRUE)
+require(ggplot2, quietly = TRUE)
+require(reshape2, quietly = TRUE)
+require(lubridate, quietly = TRUE)
+suppressPackageStartupMessages(require(XLConnect, quietly = TRUE))
+#source("../R/ed_histo_location_lb.R")
+#source("../R/histoplasmosisr_lb.R")
+require(histoplasmosisr, quietly = TRUE)
+
+@
+\documentclass[12pt,a4paper,article]{memoir} % for a short document
+\usepackage{amssymb,amsmath}
+\usepackage{hyperref} % URLs etc'
+\usepackage[shortlabels]{enumitem}
+\usepackage{pdflscape}
+%\usepackage{enumerate}
+\usepackage{colortbl}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{underscore}
+\usepackage{titling}
+\usepackage{mathbbol}
+\usepackage{fixltx2e} % allows text subscripts
+\newcommand{\subtitle}[1]{%
+  \posttitle{%
+    \par\end{center}
+    \begin{center}\large#1\end{center}
+    \vskip0.5em}%
+}
+\usepackage{soul}
+\makeatletter
+\DeclareRobustCommand*\myul{%
+    \def\SOUL@everyspace{\underline{\space}\kern\z@}
+    \def\SOUL@everytoken{%
+     \setbox0=\hbox{\the\SOUL@token}%
+     \ifdim\dp0>\z@
+        \the\SOUL@token
+     \else
+        \underline{\the\SOUL@token}%
+     \fi}
+\SOUL@}
+\makeatother
+% from Louis01012009 (sharpBibtex.bib)
+\newcommand{\estse}[2]{${#1}_{(#2)}$}
+\newcommand{\cithree}[3]{$_{{#1}\ }{#2}_{\ {#3}}$}
+\newcommand{\cifive}[5]{$_{_{#1\ }{#2}\ \!}{#3}_{\ #4_{\ #5}}$}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\filename}[1]{\texttt{#1}}
+\newcommand{\rpackage}[1]{\textit{#1}}
+\usepackage[top = 1.5in, bottom = 1.5in, left = 1in, right = 0.75in]{geometry}
+\usepackage{upquote} % to convert funny quotes to straight quotes
+%\setbox\hlnormalsizeboxsinglequote=\hbox{\normalsize\verb.'.}%
+
+% See the ``Memoir customise'' template for some common customisations
+% Don't forget to read the Memoir manual: memman.pdf
+
+\title{Search within SqlMed Data for Baboons Positive\\ for \emph{Histoplasmosis duboisii}}
+\author{SNPRC -- Primate Records Database Team}
+\date{\today}
+
+%%% BEGIN DOCUMENT
+\begin{document}
+
+\maketitle
+\section*{Purpose}
+The purpose of this document is to search the data in SqlMed for the 
+occurrance samples positive for
+\emph{Histoplasmosis duboisii}.  The list of animals found will be compared
+to the list already provided in \emph{Copy of Histo Boon Sharp 20140716.xls}.
+
+
+<<set_options, echo = FALSE, include = FALSE>>=
+options(continue = " ")
+options(width = 60)
+opts_chunk$set(autodep = TRUE)
+opts_chunk$set(concordance=TRUE)
+opts_chunk$set(keep.source=TRUE, eps = FALSE)
+opts_chunk$set(echo = FALSE, cache = FALSE, include = FALSE, tidy = FALSE)
+
+@
+<<get_data, echo = FALSE, include = FALSE>>=
+#filename <- "../data/Histo Boon Sharp 20140708.xls"
+filename <- "../data/Copy of Histo Boon Sharp 20140716.xls"
+histo_data <- loadWorkbook(filename)
+arc_species_code = 'PC'
+conn <- odbcConnect("frogstar-vortex-animal-sa")
+original_df <- get_affected_animals_df(conn, histo_data, arc_species_code)
+original_ids <- original_df$id
+sqlmed_df <- get_sqlmed_h_cap_var_duboisii(conn, arc_species_code)
+sqlmed_ids <- unique(sqlmed_df$id)
+sqlmed_only <- sqlmed_ids[!sqlmed_ids %in% original_df$id]
+clinical_records_only <- original_ids[!original_ids %in% sqlmed_ids]
+
+filename_date <- str_c(str_replace_all(str_replace_all(now(), ' ', '_'),
+                                       ':', '-'))
+
+report_file <- "SqlMed_Search_Histoplasmosis_duboisii.xlsx"
+create_wkbk(str_c("../reports/", filename_date, "_", report_file), 
+            list(sqlmed_df, sqlmed_df[sqlmed_df$id %in% original_ids, ],
+                 sqlmed_df[!sqlmed_df$id %in% original_ids, ],
+                 data.frame(id = clinical_records_only)), 
+            sheetnames = c("All SqlMed Records", "Overlapping", "SqlMed Only",
+                           "Clinical Only"))
+
+@
+There were \Sexpr{nrow(sqlmed_df)} SqlMed records indicating a sample positive
+for \emph{Histoplasmosis duboisii}. Of these \Sexpr{length(sqlmed_ids)} were 
+distinct animals. Of the unique animals \Sexpr{length(sqlmed_only)} were 
+not previously found within the clinical records. 
+There were \Sexpr{length(clinical_records_only)} animals that were found
+through the clinical records that were not found in SqlMed with the current
+search method.
+
+Results have been saved in the Excel file named 
+\emph{\Sexpr{str_c(filename_date, "_", report_file)}}.
+The complete list of samples with positive results in SqlMed are listed in 
+the worksheet labeled \emph{All SqlMed Records}. The list of samples with
+positive results that were also represented in the list of animals found using
+the clinical records is in the worksheet labeled \emph{Overlapping}. 
+The list of samples with positive results that were only seen in the SqlMed
+search are listed in the worksheet labeled \emph{SqlMed Only}. 
+The list of Ids that were found through the clinical records and not found
+through this SqlMed search is in the worksheet labeled \emph{Clinical Only}.
+
+Some variation in the text for positive results was observed
+with \Sexpr{length(unique(str_trim(sqlmed_df$observed_value)))} 
+variations being seen. They were as follows:
+\begin{itemize}
+<<list, include=TRUE, results='asis'>>=
+for (s in sort(unique(str_trim(sqlmed_df$observed_value)))) {
+  cat("\\item ", s, "\n")
+}
+@
+\end{itemize}
+<<wrapup>>=
+odbcClose(conn)
+
+elapsed_time <- get_elapsed_time_str(start_time)
+@
+\clearpage
+The current date and time is \Sexpr{Sys.time()}. The processing time for
+this document was \Sexpr{elapsed_time}
+
+<<session-info, echo = TRUE, include = TRUE>>=
+sessionInfo()
+
+@
+
+\end{document}
