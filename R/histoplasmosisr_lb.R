@@ -62,16 +62,20 @@ get_affected_animals_df <- function (conn, histo_data, arc_species_code) {
 #' 
 #' @param conn database connection object
 #' @param affected_df 
-#' id of the experimental animal (id),
-#' the id of the control animal having the minimal difference in age 
-#' (min_match_id), 
-#' the age in days of the experimental animal (age_days),
-#' the age in days of the control animal (match_age), 
-#' and the number of days different
-#' 
+#' @param arc_species_codes character vector with one or more two character
+#' representations of animal species originally developed for IACUC use.
+#' @return Dataframe with the following columns:
+#' \itemize{
+#' \item {id of the experimental animal (id)}
+#' \item {id of the control animal having the minimal difference in age 
+#' (min_match_id)}
+#' \item {age in days of the experimental animal (age_days)}
+#' \item {age in days of the control animal (match_age)}
+#' \item {number of days different}
+#' }
 #' @export
 get_ctrl_df <- function(wt_conn, exp_df, arc_species_code) {
-  ctrl_df <- get_age_sex_matched_controls(wt_conn, exp_df)
+  ctrl_df <- get_age_sex_matched_controls(wt_conn, exp_df, arc_species_code)
   ctrl_df <- merge(exp_df[ , c("id", "first_noted", "sex")], 
                    ctrl_df[ , c("id", "min_match_id")], by = "id")
   ctrl_df <- data.frame(id = ctrl_df$min_match_id, 
@@ -113,7 +117,7 @@ get_roundup_animals <- function(wt_conn, X_id_first_noted) {
 #' @param X_id_first_noted character vector of length one with the name of the 
 #' table to create
 #' @export
-create_X_id_first_noted <- function (conn, X_id_first_noted) {
+create_X_id_first_noted <- function(conn, X_id_first_noted) {
   sqlQuery(conn, str_c(
     "CREATE TABLE ", X_id_first_noted, " ( 
       id CHAR(6),
@@ -171,8 +175,13 @@ make_daily_df <- function(wt_conn, X_id_first_noted, df, housing_types) {
 #' Returns a dataframe with age and sex matched controls corresponding to 
 #' animals within affected_df.
 #' 
-#' @param wt_conn database connection object
+#' Modify this to ensure \code{affected_df$id} has the same species as 
+#' \code{arc_species_code}.
+#' 
+#' @param conn database connection object
 #' @param affected_df dataframe with animal Id and date to match on.
+#' @param arc_species_codes character vector with one or more two character
+#' representations of animal species originally developed for IACUC use.
 #' 
 #' Dataframe returned has 
 #' id of the experimental animal (id),
@@ -182,13 +191,24 @@ make_daily_df <- function(wt_conn, X_id_first_noted, df, housing_types) {
 #' the age in days of the control animal (match_age), 
 #' and the number of days different
 #' @export
-get_age_sex_matched_controls <- function(wt_conn, affected_df) {
-  sqlQuery(wt_conn, str_c(
+get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
+#' @description The first temporary table created (\code{#ctrl}) is 
+#' used to store the potential control animals found.
+
+  sqlQuery(conn, str_c(
     "CREATE TABLE #ctrl (
       id char(6), sex char(1), first_noted DATE, arc_species CHAR(2), 
         age_days INT)"))
-  
-  sqlQuery(wt_conn, str_c(
+#' @description The second temporary table created (\code{#result}) is used to
+#' store the selected control animals found. 
+#' 
+#' Control animals are defined as age and sex matched. Thus, a control animal 
+#' is selected for each animal in \code{affected_df} that has the same species
+#' and sex and 
+#' is as close to the same age as possible. Care is taken to insure that 
+#' the same control animal is not selected more than once.
+#' 
+  sqlQuery(conn, str_c(
     "CREATE TABLE #result(
        [match_id] [varchar](6) NOT NULL,
        [match_sex] [char](1) NOT NULL,
@@ -201,14 +221,14 @@ get_age_sex_matched_controls <- function(wt_conn, affected_df) {
        [day_diff] [int] NULL)"))
   
   for (i in seq_along(affected_df$id)) {
-    (sqlQuery(wt_conn, str_c(
+    (sqlQuery(conn, str_c(
       "INSERT INTO #ctrl (id, sex, first_noted, arc_species, age_days)
       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
-      "', '", affected_df$first_noted[i], "', 'PC', ",
+      "', '", affected_df$first_noted[i], "', '", arc_species_code, "', ",
       round(affected_df$days_alive[i], 0), ")")))
   }
     
-  sqlQuery(wt_conn, str_c(
+  sqlQuery(conn, str_c(
     "UPDATE #ctrl
     SET age_days = d.age_days
     FROM #ctrl c
@@ -216,7 +236,7 @@ get_age_sex_matched_controls <- function(wt_conn, affected_df) {
     ON c.id = d.id AND c.first_noted = d.target_date"))
     
     
-    sqlQuery(wt_conn, str_c(
+    sqlQuery(conn, str_c(
       "INSERT INTO #result
     ( match_id ,
       match_sex ,
@@ -241,12 +261,12 @@ get_age_sex_matched_controls <- function(wt_conn, affected_df) {
     GROUP BY d.id, d.sex, d.target_date, d.age_days, d.arc_species, 
       c.id, c.first_noted,c.age_days"))
     
-#     sqlQuery(wt_conn, str_c(
+#     sqlQuery(conn, str_c(
 #       "INSERT INTO #ctrl (id, sex, first_noted)
 #       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
 #       "', '", affected_df$first_noted[i], "')"))
   
-  ctrl_df <- sqlQuery(wt_conn, str_c(
+  ctrl_df <- sqlQuery(conn, str_c(
     "SELECT r.id, MIN(r.match_id) AS min_match_id, 
       r.age_days, r.match_age,  r.day_diff
     FROM #result r
@@ -257,11 +277,14 @@ get_age_sex_matched_controls <- function(wt_conn, affected_df) {
     AND r.match_id > r2.match_id
     GROUP BY r.id,  r.age_days, r.match_age, r.day_diff"))
 
-sqlQuery(wt_conn, str_c(
+#' @description Once the result set has been created the temporary tables 
+#' (\code{#ctrl} and \code{#result}) are deleted.
+
+sqlQuery(conn, str_c(
   "DROP TABLE #ctrl"))
 
 
-sqlQuery(wt_conn, str_c(
+sqlQuery(conn, str_c(
   "DROP TABLE #result"))
 
 

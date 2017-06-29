@@ -5,29 +5,6 @@
 <<setup_timer, echo = FALSE, include = FALSE>>=
 ## should be in a "source" file
 start_time <- proc.time()
-## stringr, lubridate, and XLConnect are attached by r_utility_function.R, 
-## but stringr is needed to find the file (str_detect()).
-library(stringr, quietly = TRUE)
-library(rmsutilityr, quietly = TRUE)
-library(grid, quietly = TRUE)
-library(animalr, quietly = TRUE)
-# if (str_detect(Sys.info()['user'], 'msharp')) {
-#  source("~/Documents/Development/R/r_workspace/animal_db_lb.R")
-# } else {
-#  source("~/Development/Mark/R/animal_db_lb.R") 
-# }
-
-@
-<<load_packages, echo = FALSE, include = FALSE>>=
-library(xtable, quietly = TRUE)
-library(RODBC, quietly = TRUE)
-library(ggplot2, quietly = TRUE)
-library(reshape2, quietly = TRUE)
-library(lubridate, quietly = TRUE)
-suppressPackageStartupMessages(library(XLConnect, quietly = TRUE))
-#source("../R/ed_histo_location_lb.R")
-#source("../R/histoplasmosisr_lb.R")
-library(histoplasmosisr, quietly = TRUE)
 
 @
 \documentclass[12pt,a4paper,article]{memoir} % for a short document
@@ -75,9 +52,25 @@ library(histoplasmosisr, quietly = TRUE)
 
 % See the ``Memoir customise'' template for some common customisations
 % Don't forget to read the Memoir manual: memman.pdf
+<<load_packages, echo = FALSE, include = FALSE>>=
+library(rmsutilityr, quietly = TRUE)
+library(grid, quietly = TRUE)
+library(animalr, quietly = TRUE)
+library(xtable, quietly = TRUE)
+library(RODBC, quietly = TRUE)
+library(ggplot2, quietly = TRUE)
+library(reshape2, quietly = TRUE)
+library(lubridate, quietly = TRUE)
+library(stringr, quietly = TRUE)
+suppressPackageStartupMessages(library(XLConnect, quietly = TRUE))
+#source("../R/ed_histo_location_lb.R")
+#source("../R/histoplasmosisr_lb.R")
+library(histoplasmosisr, quietly = TRUE)
+
+@
 
 \title{\emph{Histoplasmosis duboisii} Data for Specified Animals}
-\author{SNPRC -- Primate Records Database Team}
+\author{Data Science Group}
 \date{\today}
 
 %%% BEGIN DOCUMENT
