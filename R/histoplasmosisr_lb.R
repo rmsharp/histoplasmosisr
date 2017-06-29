@@ -69,7 +69,7 @@ get_affected_animals_df <- function (conn, histo_data, arc_species_code) {
 #' \item {id of the experimental animal (id)}
 #' \item {id of the control animal having the minimal difference in age 
 #' (min_match_id)}
-#' \item {age in days of the experimental animal (age_days)}
+#' \item {age in days of the experimental animal (age_in_days)}
 #' \item {age in days of the control animal (match_age)}
 #' \item {number of days different}
 #' }
@@ -187,7 +187,7 @@ make_daily_df <- function(wt_conn, X_id_first_noted, df, housing_types) {
 #' id of the experimental animal (id),
 #' the id of the control animal having the minimal difference in age 
 #' (min_match_id), 
-#' the age in days of the experimental animal (age_days),
+#' the age in days of the experimental animal (age_in_days),
 #' the age in days of the control animal (match_age), 
 #' and the number of days different
 #' @export
@@ -198,7 +198,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   sqlQuery(conn, str_c(
     "CREATE TABLE #ctrl (
       id char(6), sex char(1), first_noted DATE, arc_species CHAR(2), 
-        age_days INT)"))
+        age_in_days INT)"))
 #' @description The second temporary table created (\code{#result}) is used to
 #' store the selected control animals found. 
 #' 
@@ -217,24 +217,24 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
        [match_species] [char](2) NULL,
        [id] [char](6) NULL,
        [first_noted] [date] NULL,
-       [age_days] [int] NULL,
+       [age_in_days] [int] NULL,
        [day_diff] [int] NULL)"))
   
   for (i in seq_along(affected_df$id)) {
     (sqlQuery(conn, str_c(
-      "INSERT INTO #ctrl (id, sex, first_noted, arc_species, age_days)
+      "INSERT INTO #ctrl (id, sex, first_noted, arc_species, age_in_days)
       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
       "', '", affected_df$first_noted[i], "', '", arc_species_code, "', ",
       round(affected_df$days_alive[i], 0), ")")))
   }
     
-  sqlQuery(conn, str_c(
-    "UPDATE #ctrl
-    SET age_days = d.age_days
-    FROM #ctrl c
-    INNER JOIN dbo.daily_demo d
-    ON c.id = d.id AND c.first_noted = d.target_date"))
-    
+  # sqlQuery(conn, str_c(
+  #   "UPDATE #ctrl
+  #   SET age_in_days = d.age_in_days
+  #   FROM #ctrl c
+  #   INNER JOIN dbo.v_animal_age d
+  #   ON c.id = d.id AND c.first_noted = d.target_date"))
+  #   
     
     sqlQuery(conn, str_c(
       "INSERT INTO #result
@@ -245,21 +245,21 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
       match_species ,
       id ,
       first_noted ,
-      age_days ,
+      age_in_days ,
       day_diff
     )
     SELECT d.id AS match_id, d.sex match_sex, d.target_date AS match_date, 
-      d.age_days AS match_age, d.arc_species AS match_species,
-      c.id, c.first_noted, c.age_days,
-      MIN(ABS(DATEDIFF(DAY,c.first_noted,d.target_date))) AS day_diff
-    FROM dbo.daily_demo d
+      d.age_in_days AS match_age, d.arc_species_code AS match_species,
+      c.id, c.first_noted, c.age_in_days,
+      MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
+    FROM dbo.v_animal_age_sex_species d
     INNER JOIN #ctrl c ON d.sex = c.sex 
-      AND d.age_days = c.age_days 
-      AND c.arc_species = d.arc_species
-    WHERE c.id <> d.id AND c.age_days = d.age_days
-      AND ABS(DATEDIFF(DAY,c.first_noted,d.target_date)) < 3000      
-    GROUP BY d.id, d.sex, d.target_date, d.age_days, d.arc_species, 
-      c.id, c.first_noted,c.age_days"))
+      AND d.age_in_days = c.age_in_days 
+    WHERE c.id <> d.id AND c.age_in_days = d.age_in_days
+      AND c.arc_species = d.arc_species_code
+      AND ABS(DATEDIFF(DAY, c.first_noted,d.target_date)) < 3000      
+    GROUP BY d.id, d.sex, d.target_date, d.age_in_days, d.arc_species_code, 
+      c.id, c.first_noted,c.age_in_days"))
     
 #     sqlQuery(conn, str_c(
 #       "INSERT INTO #ctrl (id, sex, first_noted)
@@ -268,14 +268,14 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   
   ctrl_df <- sqlQuery(conn, str_c(
     "SELECT r.id, MIN(r.match_id) AS min_match_id, 
-      r.age_days, r.match_age,  r.day_diff
+      r.age_in_days, r.match_age,  r.day_diff
     FROM #result r
     INNER JOIN #result r2
     ON r.id = r2.id
     WHERE r.day_diff < r2.day_diff
     AND r.day_diff = (SELECT MIN(z.day_diff) FROM #result z WHERE z.id = r.id )
     AND r.match_id > r2.match_id
-    GROUP BY r.id,  r.age_days, r.match_age, r.day_diff"))
+    GROUP BY r.id,  r.age_in_days, r.match_age, r.day_diff"))
 
 #' @description Once the result set has been created the temporary tables 
 #' (\code{#ctrl} and \code{#result}) are deleted.
@@ -299,7 +299,8 @@ sqlQuery(conn, str_c(
 #' @param daily_df dataframe that has one record per day for each id from birth
 #' to first_noted date.
 #' @export
-add_location_type_percents <- function (df, daily_df, threshold_min_percent = 100) {
+add_location_type_percents <- function(df, daily_df, 
+                                       threshold_min_percent = 100) {
   df$days_gang <- sapply(df$id, FUN = function(id) {get_days_gang(id, daily_df)})
   df$percent_gang <- (df$days_gang / df$days_alive) * 100
   df$days_corral <- 
@@ -364,9 +365,12 @@ define_single_locations <- function(conn) {
 define_other_locations <- function(conn) {
   other <- sqlQuery(conn, str_c(
   "select vl.location from valid_locations vl ",
-  "where vl.location not in ( '", vector2string(define_corral_locations(conn)), "') ",
-  "and vl.location not in ( '", vector2string(define_gang_locations(conn)), "') ",
-  "and vl.location not in ( '", vector2string(define_single_locations(conn)), "')"))
+  "where vl.location not in ( '", 
+    vector2string(define_corral_locations(conn)), "') ",
+  "and vl.location not in ( '", 
+    vector2string(define_gang_locations(conn)), "') ",
+  "and vl.location not in ( '", 
+    vector2string(define_single_locations(conn)), "')"))
   other$location[other$location >= 1]
 }
 
@@ -454,7 +458,8 @@ get_daily_location_ct <- function(conn, wt_conn, daily_df) {
   daily_location_ct <- rbind(daily_gang_ct, daily_corral_ct, 
                              daily_single_ct, daily_other_ct)
  
-  daily_location_ct <- daily_location_ct[order(daily_location_ct$target_date, daily_location_ct$housing),]
+  daily_location_ct <- daily_location_ct[order(daily_location_ct$target_date, 
+                                               daily_location_ct$housing),]
 }
 
 #' Returns a dataframe with the Id, date, and the number of males and females
@@ -631,7 +636,7 @@ get_mce <- function(x, ntrials = 10, probs, obs_stat,
   for (i in seq_along(probs)) {
     prob <- probs[i]
     my_matrix[i, ] <- sample(x, size = ntrials, replace = TRUE, 
-                             prob = c(prob, 1-prob))
+                             prob = c(prob, 1 - prob))
   }
   results <- sapply(1:ntrials, FUN = function(j) {
     stat_f(my_matrix[ , j])})
