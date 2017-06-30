@@ -2,14 +2,14 @@
 #' 
 #' @param df dataframe with first_noted
 add_day_of_year_and_month <- function(df) {
-  df$day_of_year <- as.integer(strftime(df$first_noted, format = '%j'))
-  df$month <- as.integer(strftime(df$first_noted, format = '%m'))
+  df$day_of_year <- as.integer(strftime(df$first_noted, format = "%j"))
+  df$month <- as.integer(strftime(df$first_noted, format = "%m"))
   df
 }
 
 #' Returns dataframe with id, verified_date_tm, specimen_num, test_id,
 #' test_name, observed_value, and entry_date_tm for records indication positive
-#' for H. CAP. VAR. DUBOISII'
+#' for \emph{H. CAP. VAR. DUBOISII}
 #' @param conn database connection
 #' @param arc_specoes_code to limit the query to a single species.
 #' @export
@@ -24,7 +24,8 @@ get_sqlmed_h_cap_var_duboisii <- function(conn, arc_species_code) {
       and obx.observed_value not like '%NEGATIVE FOR H. CAP.%'
       and obx.observed_value not like '%NO H. CAP. VAR. DUBOISII%'
       and obx.observed_value not like '%neg. for H.cap var duboisii%'
-      and cd.arc_species_code = 'PC' "), stringsAsFactors = FALSE)
+      and cd.arc_species_code = '", arc_species_code, "' "), 
+    stringsAsFactors = FALSE)
   df  
 } 
 
@@ -484,8 +485,8 @@ get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
       ORDER by target_date, sex")
   
   m_f_ratio_df <- sqlQuery(conn, sql, stringsAsFactors = FALSE)
-  m_f_ratio_df <- merge(m_f_ratio_df[m_f_ratio_df$sex == 'M', ],
-                        m_f_ratio_df[m_f_ratio_df$sex == 'F', ],
+  m_f_ratio_df <- merge(m_f_ratio_df[m_f_ratio_df$sex == "M", ],
+                        m_f_ratio_df[m_f_ratio_df$sex == "F", ],
                         by = "target_date")
   m_f_ratio_df$sex.x <- NULL
   m_f_ratio_df$sex.y <- NULL
@@ -532,16 +533,16 @@ get_housing_type_ratios <- function(conn, affected_df, housing_types,
     ORDER BY dd.target_date, #ht_temp.ht"), stringsAsFactors = FALSE)
   
   sqlQuery(conn, "DROP TABLE #ht_temp")
-  corral <- ht_df[ht_df$ht == 'corral', ]
+  corral <- ht_df[ht_df$ht == "corral", ]
   corral$ht <- NULL
   names(corral) <- c("target_date", "corral")
-  gang <- ht_df[ht_df$ht == 'gang', ]
+  gang <- ht_df[ht_df$ht == "gang", ]
   gang$ht <- NULL
   names(gang) <- c("target_date", "gang")
-  single <- ht_df[ht_df$ht == 'single', ]
+  single <- ht_df[ht_df$ht == "single", ]
   single$ht <- NULL
   names(single) <- c("target_date", "single")
-  other <- ht_df[ht_df$ht == 'other', ]
+  other <- ht_df[ht_df$ht == "other", ]
   other$ht <- NULL
   names(other) <- c("target_date", "other")
   ht_df_1 <- merge(corral, gang, by = "target_date")
@@ -568,37 +569,35 @@ get_housing_type_ratios <- function(conn, affected_df, housing_types,
 #' @param alpha Type 1 error rate
 #' @param reference_row (unexposed or control group)
 #' @export
-calc_relative_risk <- function(mymatrix, alpha=0.05, reference_row=2)
-{
+calc_relative_risk <- function(mymatrix, alpha=0.05, reference_row=2) {
   numrow <- nrow(mymatrix)
   myrownames <- rownames(mymatrix)
   relative_risk <- numeric(numrow)
   lowervalue <- numeric(numrow)
   uppervalue <- numeric(numrow)
-  for (i in 1:numrow)
-  {
+  for (i in 1:numrow) {
     rowname <- myrownames[i]
-    disease_unexposed <- mymatrix[reference_row,1]
-    control_unexposed <- mymatrix[reference_row,2]
-    if (i != reference_row)
-    {
-      disease_exposed <- mymatrix[i,1]
-      control_exposed <- mymatrix[i,2]
+    disease_unexposed <- mymatrix[reference_row, 1]
+    control_unexposed <- mymatrix[reference_row, 2]
+    if (i != reference_row) {
+      disease_exposed <- mymatrix[i, 1]
+      control_exposed <- mymatrix[i, 2]
       tot_exposed <- disease_exposed + control_exposed
       tot_unexposed <- disease_unexposed + control_unexposed
-      prob_disease_given_exposed <- disease_exposed/tot_exposed
-      prob_disease_given_unexposed <- disease_unexposed/tot_unexposed
+      prob_disease_given_exposed <- disease_exposed / tot_exposed
+      prob_disease_given_unexposed <- disease_unexposed / tot_unexposed
       
       # calculate the relative risk
-      relative_risk[i] <- prob_disease_given_exposed/prob_disease_given_unexposed
+      relative_risk[i] <- prob_disease_given_exposed /
+        prob_disease_given_unexposed
       #print(paste("category =", rowname, ", relative risk = ",relative_risk))
       
       # calculate a confidence interval
-      confidence_level <- (1 - alpha)*100
-      sigma <- sqrt((1/disease_exposed) - (1/tot_exposed) +
-                      (1/disease_unexposed) - (1/tot_unexposed))
+      confidence_level <- (1 - alpha) * 100
+      sigma <- sqrt((1 / disease_exposed) - (1 / tot_exposed) +
+                      (1 / disease_unexposed) - (1 / tot_unexposed))
       # sigma is the standard error of estimate of log of relative risk
-      z <- qnorm(1-(alpha/2))
+      z <- qnorm(1 - (alpha / 2))
       lowervalue[i] <- relative_risk[i] * exp(-z * sigma)
       uppervalue[i] <- relative_risk[i] * exp( z * sigma)
       #print(paste("category =", rowname, ", ", confidence_level,
@@ -650,21 +649,21 @@ get_mce <- function(x, ntrials = 10, probs, obs_stat,
 #' @param variable name of the variable being counted.
 #' @export
 get_stat_f <- function(variable) {
-  if (variable == 'sex') {
+  if (variable == "sex") {
     stat_f <- function(samp) {
-      length(samp[samp == 'M']) / length(samp)
+      length(samp[samp == "M"]) / length(samp)
     }
-  } else if (variable == 'housing_type_corral') {
+  } else if (variable == "housing_type_corral") {
     stat_f <- function(samp) {
-      length(samp[samp == 'corral']) / length(samp)
+      length(samp[samp == "corral"]) / length(samp)
     }
-  } else if (variable == 'housing_type_gang') {
+  } else if (variable == "housing_type_gang") {
     stat_f <- function(samp) {
-      length(samp[samp == 'gang']) / length(samp)
+      length(samp[samp == "gang"]) / length(samp)
     }
-  } else if (variable == 'housing_type_single') {
+  } else if (variable == "housing_type_single") {
     stat_f <- function(samp) {
-      length(samp[samp == 'single']) / length(samp)
+      length(samp[samp == "single"]) / length(samp)
     }
   } 
   stat_f
