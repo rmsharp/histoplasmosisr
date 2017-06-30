@@ -255,9 +255,11 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
     FROM dbo.v_animal_age_sex_species d
     INNER JOIN #ctrl c ON d.sex = c.sex 
       AND d.age_in_days = c.age_in_days 
-    WHERE c.id <> d.id AND c.age_in_days = d.age_in_days
-      AND c.arc_species = d.arc_species_code
-      AND ABS(DATEDIFF(DAY, c.first_noted,d.target_date)) < 3000      
+      AND c.id <> d.id 
+      AND d.arc_species_code = '", arc_species_code, "' ", 
+      ## AND c.arc_species = d.arc_species_code
+    " WHERE c.age_in_days = d.age_in_days
+      AND ABS(DATEDIFF(DAY, c.first_noted,d.target_date)) < 50      
     GROUP BY d.id, d.sex, d.target_date, d.age_in_days, d.arc_species_code, 
       c.id, c.first_noted,c.age_in_days"))
     
