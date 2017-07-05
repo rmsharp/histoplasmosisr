@@ -39,7 +39,7 @@ get_sqlmed_h_cap_var_duboisii <- function(conn, arc_species_code) {
 #' species code 
 #' and the date each animal was noted to have histoplasmosis.
 #' @export
-get_affected_animals_df <- function (conn, histo_data, arc_species_code) {
+get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
   affected_df <- readWorksheet(histo_data, sheet = 1)
   names(affected_df) <-  c("id", "first_noted")
   affected_df$arc_species <- arc_species_code
@@ -51,7 +51,8 @@ get_affected_animals_df <- function (conn, histo_data, arc_species_code) {
                                                 format = "%Y-%m-%d"), 
                                        format = "%Y-%m-%d")
   affected_df$days_alive <- 
-    1 + (affected_df$first_noted - affected_df$birth_date) / ddays(1)
+    as.integer(1L + round((affected_df$first_noted - affected_df$birth_date) / 
+                            ddays(1), 0))
   affected_df <- add_sex(conn, affected_df) 
   affected_df$age <- 
     (affected_df$first_noted - affected_df$birth_date) / dyears(1)
@@ -256,9 +257,11 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
     FROM dbo.v_animal_age_sex_species d
     INNER JOIN #ctrl c ON d.sex = c.sex 
       AND d.age_in_days = c.age_in_days 
-    WHERE c.id <> d.id AND c.age_in_days = d.age_in_days
-      AND c.arc_species = d.arc_species_code
-      AND ABS(DATEDIFF(DAY, c.first_noted,d.target_date)) < 3000      
+      AND c.id <> d.id 
+      AND d.arc_species_code = '", arc_species_code, "' ", 
+      ## AND c.arc_species = d.arc_species_code
+    " WHERE c.age_in_days = d.age_in_days
+      AND ABS(DATEDIFF(DAY, c.first_noted,d.target_date)) < 100     
     GROUP BY d.id, d.sex, d.target_date, d.age_in_days, d.arc_species_code, 
       c.id, c.first_noted,c.age_in_days"))
     
