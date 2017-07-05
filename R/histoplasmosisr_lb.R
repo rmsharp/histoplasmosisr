@@ -87,7 +87,8 @@ get_ctrl_df <- function(wt_conn, exp_df, arc_species_code) {
   ctrl_df <- add_birth_date(conn, ctrl_df)
   ctrl_df$birth_date <- as.POSIXct(strftime(ctrl_df$birth_date, format = "%Y-%m-%d"), 
                                    format = "%Y-%m-%d")
-  ctrl_df$days_alive <- 1 + (ctrl_df$first_noted - ctrl_df$birth_date) / ddays(1)
+  ctrl_df$days_alive <- as.integer(round(1L + (ctrl_df$first_noted -
+                                           ctrl_df$birth_date) / ddays(1), 0))
   ctrl_df <- add_sex(conn, ctrl_df)
   ctrl_df$age <- (ctrl_df$first_noted - ctrl_df$birth_date) / dyears(1)
   
