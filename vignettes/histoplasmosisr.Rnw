@@ -190,8 +190,7 @@ exp_df <- original_df
 
 @
 <<add-birthdate-sex-age>>=
-wt_conn <- odbcConnect("wh-animal-sa")
-ctrl_df <- get_ctrl_df(wt_conn, exp_df, arc_species_code)
+ctrl_df <- get_ctrl_df(conn, exp_df, arc_species_code)
 
 @
 <<report-ages>>=
