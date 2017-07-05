@@ -192,6 +192,9 @@ exp_df <- original_df
 <<add-birthdate-sex-age>>=
 ctrl_df <- get_ctrl_df(conn, exp_df, arc_species_code)
 
+## This next line is needed because controls are not found for all animals 
+exp_df <- exp_df[!exp_df$id %in% ctrl_df$id, ]
+
 @
 <<report-ages>>=
 create_wkbk("../reports/histo_animal_ages_at_first_noted_date.xlsx", 
@@ -203,8 +206,8 @@ create_wkbk("../reports/histo_animal_ages_at_first_noted_date.xlsx",
 X_exp <- "X_exp"
 X_ctrl <- "X_ctrl"
 housing_types <- get_housing_types(conn)
-daily_exp_df <- make_daily_df(wt_conn, X_exp, exp_df, housing_types)
-daily_ctrl_df <- make_daily_df(wt_conn, X_ctrl, ctrl_df, housing_types)
+daily_exp_df <- make_daily_df(conn, X_exp, exp_df, housing_types)
+daily_ctrl_df <- make_daily_df(conn, X_ctrl, ctrl_df, housing_types)
 
 @
 <<get_df_percentages, echo = FALSE, include = TRUE, results = "asis">>=
@@ -253,7 +256,7 @@ percent_exp_animals_ever_single <-
 
 @
 <<get-male-female-ratios>>=
-exp_df <- get_male_female_ratio(wt_conn, exp_df, arc_species_code)
+exp_df <- get_male_female_ratio(conn, exp_df, arc_species_code)
 
 affected_males <- length(exp_df$sex[exp_df$sex == 'M'])
 affected_females <- length(exp_df$sex[exp_df$sex == 'F'])
@@ -370,8 +373,8 @@ ts_gls <- gls(time_series)
 Figure~\ref{month-of-year} shows the total number of affected animals for 
 each month of the year in a 
 <<plot-hist, fig.height = 6, fig.width=8, results = 'asis', include = TRUE>>=
-roundup_animals_exp_df <- get_roundup_animals(wt_conn, X_exp)
-roundup_animals_ctrl_df <- get_roundup_animals(wt_conn, X_ctrl)
+roundup_animals_exp_df <- get_roundup_animals(conn, X_exp)
+roundup_animals_ctrl_df <- get_roundup_animals(conn, X_ctrl)
 
 par(mfrow = c(1, 2))
 cat("\\begin{figure}\n")
@@ -419,9 +422,9 @@ cat("\\end{figure}\n")
 
 <<analyse-housing-type>>=
 ntrials <- 10 # 1000 is more realistic
-exp_df <- get_housing_type_ratios(wt_conn, exp_df, housing_types, 
+exp_df <- get_housing_type_ratios(conn, exp_df, housing_types, 
                                   arc_species_code)
-odbcClose(wt_conn)
+odbcClose(conn)
 
 stat_f <- get_stat_f('housing_type_gang')
 housing_type_gang_mce <- 
