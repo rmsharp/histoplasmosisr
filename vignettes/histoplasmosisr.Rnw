@@ -207,7 +207,7 @@ Current questions to ask from this:
 population as well. If Females seem to be more effected, 
 is it because our population is female heavy?)
 
-4. Somehow like to genetics, do certain lines, sires, dams, lineage have a 
+4. Somehow link to genetics, do certain lines, sires, dams, lineage have a 
 higher occurrence of histo.  I'm not sure how to relate kinship to this.
 
 5. Somehow, link clinical data.  I need to spend some time on CAMP to see 
@@ -221,6 +221,12 @@ Anna Gates
 
 
 \end{verbatim}
+Look for age matched controls in necropsy animals. Compare amyloidosis prevalence.
+
+Pull all clinical chemistry and CBCs for all affected and controls two years or
+less from diagnosis date.
+
+@
 
 <<set_options, echo = FALSE, include = FALSE>>=
 options(continue = " ")
@@ -245,7 +251,12 @@ exp_df <- original_df
 ctrl_df <- get_ctrl_df(conn, exp_df, arc_species_code)
 
 ## This next line is needed if controls are not found for all animals 
-exp_df <- exp_df[!exp_df$id %in% ctrl_df$id, ]
+exp_df <- exp_df[exp_df$id %in% ctrl_df$affected_id, ]
+add_match_id <- function() {
+  exp_df <- exp_df[order(exp_df$id), ]
+  ctrl_df <- ctrl_df[order(ctrl_df$match_id), ]
+  exp_df$match_id <- ctrl_df$id
+}
 
 @
 <<report-ages>>=
@@ -260,6 +271,13 @@ X_ctrl <- "X_ctrl"
 housing_types <- get_housing_types(conn)
 daily_exp_df <- make_daily_location(conn, X_exp, exp_df, housing_types)
 daily_ctrl_df <- make_daily_location(conn, X_ctrl, ctrl_df, housing_types)
+
+id_str <- vector2string(exp_df$id, SS = "', '")
+id_str <- vector2string(ctrl_df$id, SS = "', '")
+sql_txt <- stri_c(
+  "select cd.id from current_data cd where cd.id in ('", id_str, "')
+    and cd.at_sfbr = 'Y'")
+alive_df <- sqlQuery(conn, sql_txt)
 
 @
 <<get_df_percentages, echo = FALSE, include = TRUE, results = "asis">>=
