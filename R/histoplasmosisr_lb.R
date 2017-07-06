@@ -80,6 +80,7 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
 get_ctrl_df <- function(conn, exp_df, arc_species_code) {
   ctrl_df <- get_age_sex_matched_controls(conn, exp_df, arc_species_code)
   
+  
   ctrl_df <- merge(exp_df[ , c("id", "first_noted", "sex")], 
                    ctrl_df[ , c("id", "min_match_id")], by = "id")
   ctrl_df <- data.frame(id = ctrl_df$min_match_id, 
@@ -285,7 +286,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
     WHERE r.day_diff < r2.day_diff
     AND r.day_diff = (SELECT MIN(z.day_diff) FROM #result z WHERE z.id = r.id )
     AND r.match_id > r2.match_id
-    GROUP BY r.id,  r.age_in_days, r.match_age, r.day_diff"))
+    GROUP BY r.id, r.match_species, r.age_in_days, r.match_age, r.day_diff"))
 
 #' @description Once the result set has been created the temporary tables 
 #' (\code{#ctrl} and \code{#result}) are deleted.
