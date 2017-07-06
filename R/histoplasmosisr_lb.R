@@ -257,7 +257,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
       age_in_days ,
       day_diff
     )
-    SELECT d.id AS match_id, d.sex match_sex, d.target_date AS match_date, 
+    SELECT d.id AS match_id, d.sex AS match_sex, d.target_date AS match_date, 
       d.age_in_days AS match_age, d.arc_species_code AS match_species,
       c.id, c.first_noted, c.age_in_days,
       MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
@@ -271,7 +271,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
     " WHERE c.age_in_days = d.age_in_days
         AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 500   
     GROUP BY d.id, d.sex, d.target_date, d.age_in_days, d.arc_species_code, 
-      c.id, c.first_noted,c.age_in_days"))
+      c.id, c.first_noted, c.age_in_days"))
     
 #     sqlQuery(conn, str_c(
 #       "INSERT INTO #ctrl (id, sex, first_noted)
