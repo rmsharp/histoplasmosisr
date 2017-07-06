@@ -170,6 +170,58 @@ Megan is hoping she will have the list of animals and cut off dates
 for housing by the end of this week.
 
 \end{verbatim}
+At the end of June 2017, Anna Gates took up this project. The following e-mail
+message from her discusses what she would like done and some of the questions 
+she would like to ask.
+
+\begin{verbatim}
+From: Anna Gates <AGates@txbiomed.org>
+Subject: RE: histoplasmosisr Rnw file
+Date: July 5, 2017 at 5:49:27 PM CDT
+To: Mark Sharp <msharp@TxBiomed.org>
+
+Hello, 
+I got an email from Terry regarding TAC, so I'll get that set up.  
+
+For SQLMED:
+The test (name) ordered would be: SMEAR, WRIGHT STAIN
+The result we are looking for is POSITIVE FOR H. CAP.VAR. DUBOISII (should be 
+no variations, they choose from a list)
+One girl who has 3 positive cytologies for this is ID: 30852 (if you need a
+cross reference)
+
+Also reminder to extract data from pathology pdf reports for histoplasmosis 
+data.  Possible terms this might be under are histoplasmosis, histoplasma, 
+H.capsulatum, Histo Cap (different pathologists, different terms.  
+If I come across any other terms/forms, I'll let you know)
+
+
+Current questions to ask from this:
+1. Effects of living environment	
+    - Corral vs Non-corral
+    -  \% of life in habitats
+
+2. Age at Diagnosis vs the general colony (control group)
+
+3. Male vs Female (this might be need to be correlated to the general 
+population as well. If Females seem to be more effected, 
+is it because our population is female heavy?)
+
+4. Somehow like to genetics, do certain lines, sires, dams, lineage have a 
+higher occurrence of histo.  I'm not sure how to relate kinship to this.
+
+5. Somehow, link clinical data.  I need to spend some time on CAMP to see 
+how to approach this.  Hopefully get to do that later this week?
+
+This might be a start.  I'll come by and check in with you tomorrow.  T
+hank you so much for all your help, I really appreciate it.
+
+
+Anna Gates
+
+
+\end{verbatim}
+
 <<set_options, echo = FALSE, include = FALSE>>=
 options(continue = " ")
 options(width = 60)
@@ -192,7 +244,7 @@ exp_df <- original_df
 <<add-birthdate-sex-age>>=
 ctrl_df <- get_ctrl_df(conn, exp_df, arc_species_code)
 
-## This next line is needed because controls are not found for all animals 
+## This next line is needed if controls are not found for all animals 
 exp_df <- exp_df[!exp_df$id %in% ctrl_df$id, ]
 
 @
@@ -206,8 +258,8 @@ create_wkbk("../reports/histo_animal_ages_at_first_noted_date.xlsx",
 X_exp <- "X_exp"
 X_ctrl <- "X_ctrl"
 housing_types <- get_housing_types(conn)
-daily_exp_df <- make_daily_df(conn, X_exp, exp_df, housing_types)
-daily_ctrl_df <- make_daily_df(conn, X_ctrl, ctrl_df, housing_types)
+daily_exp_df <- make_daily_location(conn, X_exp, exp_df, housing_types)
+daily_ctrl_df <- make_daily_location(conn, X_ctrl, ctrl_df, housing_types)
 
 @
 <<get_df_percentages, echo = FALSE, include = TRUE, results = "asis">>=

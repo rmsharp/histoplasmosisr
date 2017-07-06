@@ -150,7 +150,13 @@ insert_id_first_noted <- function(wt_conn, X_id_first_noted, df) {
     }
   }
 
-#' Creates a dataframe with a row for each day of life prior to the 
+#' Make daily location dataframe.
+#' 
+#' @return A dataframe with a row with \code{target_date}, \code{location}, 
+#' \code{id}, and columns for housing types (\code{gand}, \code{corral}, 
+#' \code{single}, \code{other} with either \code{1} or \code{0} depending on
+#' whether or not the animal was in that type of housing on the target date
+#' for each day of life prior to the 
 #' first_noted date for each animal in the table with the name
 #' contained in X_id_first_noted.
 #' 
@@ -158,20 +164,18 @@ insert_id_first_noted <- function(wt_conn, X_id_first_noted, df) {
 #' @param X_id_first_noted name of database table with Ids and dates Histoplasmosis
 #' was first noted.
 #' @export
-make_daily_df <- function(wt_conn, X_id_first_noted, df, housing_types) {
-  drop_status <- sqlQuery(wt_conn, str_c("drop table ", X_id_first_noted))
-  create_X_id_first_noted(wt_conn, X_id_first_noted)
-  insert_id_first_noted(wt_conn, X_id_first_noted, df)
-  daily_df <- sqlQuery(wt_conn, str_c(
-    "SELECT dd.target_date , ",
-    "dd.midnight_location as location, ",
-    "dd.id ",
-    "FROM daily_demo dd ",
-    "INNER JOIN ", X_id_first_noted, " h ",
-    "ON h.id = dd.id ",
-    "INNER JOIN animal.dbo.master m ",
-    "ON m.id = dd.id ",
-    "WHERE dd.target_date BETWEEN cast(m.birth_date as date) 
+make_daily_location <- function(conn, X_id_first_noted, df, housing_types) {
+  drop_status <- sqlQuery(conn, str_c("drop table ", X_id_first_noted))
+  create_X_id_first_noted(conn, X_id_first_noted)
+  insert_id_first_noted(conn, X_id_first_noted, df)
+  daily_df <- sqlQuery(conn, str_c(
+    "SELECT dd.target_date, 
+      dd.location, 
+      dd.id 
+    FROM v_animal_by_dayD dd 
+    INNER JOIN ", X_id_first_noted, " h ON h.id = dd.id 
+    INNER JOIN animal.dbo.master m ON m.id = dd.id 
+    WHERE dd.target_date BETWEEN cast(m.birth_date as date) 
       AND h.first_noted") , stringsAsFactors = FALSE)
 
   daily_df$gang <- ifelse(daily_df$location %in% housing_types$gang, 1, 0)
