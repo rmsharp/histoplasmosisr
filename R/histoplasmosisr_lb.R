@@ -206,9 +206,14 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' used to store the potential control animals found.
 
   status <- sqlQuery(conn, str_c(
-    "CREATE TABLE #ctrl (
-      id char(6), sex char(1), first_noted DATE, arc_species CHAR(2), 
-        age_in_days INT)"))
+    "CREATE TABLE #ctrl ( 
+	    id char(6), 
+      sex char(1), 
+      first_noted DATE, 
+      arc_species CHAR(2), 
+      age_in_days INT
+    )
+    "))
 #' @description The second temporary table created (\code{#result}) is used to
 #' store the selected control animals found. 
 #' 
@@ -247,31 +252,41 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
     
   status <- sqlQuery(conn, str_c(
       "INSERT INTO #result
-    ( match_id ,
-      match_sex ,
-      match_date ,
-      match_age ,
-      match_species ,
-      id ,
-      first_noted ,
-      age_in_days ,
+    ( match_id,
+      match_sex,
+      match_date,
+      match_age,
+      match_species,
+      id,
+      first_noted,
+      age_in_days,
       day_diff
     )
-    SELECT d.id AS match_id, d.sex AS match_sex, d.target_date AS match_date, 
-      d.age_in_days AS match_age, d.arc_species_code AS match_species,
-      c.id, c.first_noted, c.age_in_days,
-      MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
-    FROM dbo.v_animal_age_sex_species d
-    INNER JOIN #ctrl c ON d.sex = c.sex ",
-      ##AND d.age_in_days = c.age_in_days # does not use index if here
-      ## Do not want a control animal to be any affected animal
-      "AND NOT EXISTS (SELECT 1 FROM #ctrl c2 WHERE d.id = c2.id)
-      AND d.arc_species_code = '", arc_species_code, "' ", 
-      ## AND c.arc_species = d.arc_species_code
-    " WHERE c.age_in_days = d.age_in_days
-        AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 500   
-    GROUP BY d.id, d.sex, d.target_date, d.age_in_days, d.arc_species_code, 
-      c.id, c.first_noted, c.age_in_days"))
+    	SELECT d.id AS match_id, 
+        d.sex AS match_sex, 
+        d.target_date AS match_date, 
+        d.age_in_days AS match_age, 
+        d.arc_species_code AS match_species, 
+        c.id,
+        c.first_noted, 
+        c.age_in_days, 
+        MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
+      FROM dbo.v_animal_age_sex_species d
+      INNER JOIN #ctrl c ON d.sex = c.sex
+        AND NOT EXISTS (
+          SELECT 1 FROM #ctrl c2 WHERE d.id = c2.id
+        )
+        AND d.arc_species_code = 'PC'
+      WHERE c.age_in_days = d.age_in_days
+        AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 500
+      GROUP BY d.id, 
+        d.sex, 
+        d.target_date, 
+        d.age_in_days, 
+        d.arc_species_code, 
+        c.id, 
+        c.first_noted,
+        c.age_in_days"))
     
 #     sqlQuery(conn, str_c(
 #       "INSERT INTO #ctrl (id, sex, first_noted)
@@ -280,7 +295,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   
   ctrl_df <- sqlQuery(conn, str_c(
     "SELECT r.id, MIN(r.match_id) AS min_match_id, 
-      r.match_species as arc_species, 
+      r.match_species AS arc_species, 
       r.age_in_days, r.match_age,  r.day_diff
     FROM #result r
     INNER JOIN #result r2
