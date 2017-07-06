@@ -84,7 +84,7 @@ get_ctrl_df <- function(conn, exp_df, arc_species_code) {
                    ctrl_df[ , c("id", "min_match_id", "match_age", "day_diff")], 
                    by = "id")
   ctrl_df <- data.frame(id = ctrl_df$min_match_id, 
-                        affected_id = ctrl_df$id,
+                        match_id = ctrl_df$id,
                         first_noted = ctrl_df$first_noted,
                         sex = ctrl_df$sex,
                         arc_species = ctrl_df$arc_species,
