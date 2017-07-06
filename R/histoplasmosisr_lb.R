@@ -80,20 +80,22 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
 get_ctrl_df <- function(conn, exp_df, arc_species_code) {
   ctrl_df <- get_age_sex_matched_controls(conn, exp_df, arc_species_code)
   
-  
-  ctrl_df <- merge(exp_df[ , c("id", "first_noted", "sex")], 
-                   ctrl_df[ , c("id", "min_match_id")], by = "id")
+  ctrl_df <- merge(exp_df[ , c("id", "first_noted", "sex", "arc_species")], 
+                   ctrl_df[ , c("id", "min_match_id", "match_age", "day_diff")], 
+                   by = "id")
   ctrl_df <- data.frame(id = ctrl_df$min_match_id, 
                         first_noted = ctrl_df$first_noted,
-                        arc_species = arc_species_code)
+                        sex = ctrl_df$sex,
+                        arc_species = ctrl_df$arc_species,
+                        days_alive = ctrl_df$match_age,
+                        stringsAsFactors = FALSE
+                        )
   ctrl_df <- add_day_of_year_and_month(ctrl_df)
   ctrl_df <- add_birth_date(conn, ctrl_df)
   ctrl_df$birth_date <- as.POSIXct(strftime(ctrl_df$birth_date, format = "%Y-%m-%d"), 
                                    format = "%Y-%m-%d")
   ctrl_df$days_alive <- as.integer(round(1L + (ctrl_df$first_noted -
                                            ctrl_df$birth_date) / ddays(1), 0))
-  ctrl_df <- add_sex(conn, ctrl_df)
-  ctrl_df$sex <- as.character(ctrl_df$sex)
   ctrl_df$age <- (ctrl_df$first_noted - ctrl_df$birth_date) / dyears(1)
   
   ctrl_df
@@ -267,7 +269,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
       AND d.arc_species_code = '", arc_species_code, "' ", 
       ## AND c.arc_species = d.arc_species_code
     " WHERE c.age_in_days = d.age_in_days
-        AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 1000   
+        AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 500   
     GROUP BY d.id, d.sex, d.target_date, d.age_in_days, d.arc_species_code, 
       c.id, c.first_noted,c.age_in_days"))
     
