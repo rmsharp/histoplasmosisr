@@ -54,6 +54,7 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
     as.integer(1L + round((affected_df$first_noted - affected_df$birth_date) / 
                             ddays(1), 0))
   affected_df <- add_sex(conn, affected_df) 
+  affected_df$sex <- as.character(affected_df$sex)
   affected_df$age <- 
     (affected_df$first_noted - affected_df$birth_date) / dyears(1)
   affected_df
@@ -76,8 +77,9 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
 #' \item {number of days different}
 #' }
 #' @export
-get_ctrl_df <- function(wt_conn, exp_df, arc_species_code) {
-  ctrl_df <- get_age_sex_matched_controls(wt_conn, exp_df, arc_species_code)
+get_ctrl_df <- function(conn, exp_df, arc_species_code) {
+  ctrl_df <- get_age_sex_matched_controls(conn, exp_df, arc_species_code)
+  
   ctrl_df <- merge(exp_df[ , c("id", "first_noted", "sex")], 
                    ctrl_df[ , c("id", "min_match_id")], by = "id")
   ctrl_df <- data.frame(id = ctrl_df$min_match_id, 
@@ -90,6 +92,7 @@ get_ctrl_df <- function(wt_conn, exp_df, arc_species_code) {
   ctrl_df$days_alive <- as.integer(round(1L + (ctrl_df$first_noted -
                                            ctrl_df$birth_date) / ddays(1), 0))
   ctrl_df <- add_sex(conn, ctrl_df)
+  ctrl_df$sex <- as.character(ctrl_df$sex)
   ctrl_df$age <- (ctrl_df$first_noted - ctrl_df$birth_date) / dyears(1)
   
   ctrl_df
@@ -193,12 +196,13 @@ make_daily_df <- function(wt_conn, X_id_first_noted, df, housing_types) {
 #' the age in days of the experimental animal (age_in_days),
 #' the age in days of the control animal (match_age), 
 #' and the number of days different
+#' @import stringr
 #' @export
 get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' @description The first temporary table created (\code{#ctrl}) is 
 #' used to store the potential control animals found.
 
-  sqlQuery(conn, str_c(
+  status <- sqlQuery(conn, str_c(
     "CREATE TABLE #ctrl (
       id char(6), sex char(1), first_noted DATE, arc_species CHAR(2), 
         age_in_days INT)"))
@@ -211,7 +215,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' is as close to the same age as possible. Care is taken to insure that 
 #' the same control animal is not selected more than once.
 #' 
-  sqlQuery(conn, str_c(
+  status <- sqlQuery(conn, str_c(
     "CREATE TABLE #result(
        [match_id] [varchar](6) NOT NULL,
        [match_sex] [char](1) NOT NULL,
@@ -224,13 +228,12 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
        [day_diff] [int] NULL)"))
   
   for (i in seq_along(affected_df$id)) {
-    (sqlQuery(conn, str_c(
+    (status <- sqlQuery(conn, str_c(
       "INSERT INTO #ctrl (id, sex, first_noted, arc_species, age_in_days)
       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
       "', '", affected_df$first_noted[i], "', '", arc_species_code, "', ",
-      round(affected_df$days_alive[i], 0), ")")))
+      affected_df$days_alive[i], ")")))
   }
-    
   # sqlQuery(conn, str_c(
   #   "UPDATE #ctrl
   #   SET age_in_days = d.age_in_days
@@ -239,7 +242,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   #   ON c.id = d.id AND c.first_noted = d.target_date"))
   #   
     
-    sqlQuery(conn, str_c(
+  status <- sqlQuery(conn, str_c(
       "INSERT INTO #result
     ( match_id ,
       match_sex ,
@@ -256,13 +259,14 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
       c.id, c.first_noted, c.age_in_days,
       MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
     FROM dbo.v_animal_age_sex_species d
-    INNER JOIN #ctrl c ON d.sex = c.sex 
-      AND d.age_in_days = c.age_in_days 
-      AND c.id <> d.id 
+    INNER JOIN #ctrl c ON d.sex = c.sex ",
+      ##AND d.age_in_days = c.age_in_days # does not use index if here
+      ## Do not want a control animal to be any affected animal
+      "AND NOT EXISTS (SELECT 1 FROM #ctrl c2 WHERE d.id = c2.id)
       AND d.arc_species_code = '", arc_species_code, "' ", 
       ## AND c.arc_species = d.arc_species_code
     " WHERE c.age_in_days = d.age_in_days
-      AND ABS(DATEDIFF(DAY, c.first_noted,d.target_date)) < 100     
+        AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 1000   
     GROUP BY d.id, d.sex, d.target_date, d.age_in_days, d.arc_species_code, 
       c.id, c.first_noted,c.age_in_days"))
     
@@ -285,13 +289,8 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' @description Once the result set has been created the temporary tables 
 #' (\code{#ctrl} and \code{#result}) are deleted.
 
-sqlQuery(conn, str_c(
-  "DROP TABLE #ctrl"))
-
-
-sqlQuery(conn, str_c(
-  "DROP TABLE #result"))
-
+  status <- sqlQuery(conn, str_c("DROP TABLE #ctrl"))
+  status <- sqlQuery(conn, str_c("DROP TABLE #result"))
 
   ctrl_df
 }
