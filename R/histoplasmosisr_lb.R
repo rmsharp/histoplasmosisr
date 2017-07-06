@@ -277,6 +277,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   
   ctrl_df <- sqlQuery(conn, str_c(
     "SELECT r.id, MIN(r.match_id) AS min_match_id, 
+      r.match_species as arc_species, 
       r.age_in_days, r.match_age,  r.day_diff
     FROM #result r
     INNER JOIN #result r2
