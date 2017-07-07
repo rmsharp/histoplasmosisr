@@ -520,11 +520,11 @@ get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
   target_date_df <- data.frame(target_date = unique(affected_df$first_noted))
   sql <- str_c(
       "SELECT dd.target_date, sex, count(dd.target_date)
-      FROM daily_demo AS dd
+      FROM V_ANIMAL_AGE_SEX_SPECIES AS dd
       WHERE target_date in ('", 
         vector2string(strftime(target_date_df$target_date, format = "%m/%d/%Y"), 
                      SS = "', '"), "')
-        AND arc_species = '", arc_species_code, "'
+        AND arc_species_code = '", arc_species_code, "'
       GROUP by target_date, sex 
       ORDER by target_date, sex")
   

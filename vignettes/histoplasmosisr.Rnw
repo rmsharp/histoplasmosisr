@@ -63,8 +63,7 @@ library(reshape2, quietly = TRUE)
 library(lubridate, quietly = TRUE)
 library(stringr, quietly = TRUE)
 suppressPackageStartupMessages(library(XLConnect, quietly = TRUE))
-#source("../R/ed_histo_location_lb.R")
-#source("../R/histoplasmosisr_lb.R")
+
 library(histoplasmosisr, quietly = TRUE)
 
 @
@@ -238,7 +237,6 @@ opts_chunk$set(echo = FALSE, cache = FALSE, include = FALSE, tidy = FALSE)
 
 @
 <<get_data, echo = FALSE, include = FALSE>>=
-#filename <- "../data/Histo Boon Sharp 20140708.xls"
 filename <- "../inst/extdata/Copy of Histo Boon Sharp 20140716.xls"
 histo_data <- loadWorkbook(filename)
 arc_species_code = 'PC'
@@ -252,8 +250,6 @@ ctrl_df <- get_ctrl_df(conn, exp_df, arc_species_code)
 
 ## This next line is needed if controls are not found for all animals 
 exp_df <- exp_df[exp_df$id %in% ctrl_df$match_id, ]
-
-
 exp_df <- add_match_id(ctrl_df, exp_df)
 
 @
@@ -339,7 +335,7 @@ sex_exp_vs_total_chisq <- chisq.test(x = sex_exp_vs_total_m)
 stat_f <- get_stat_f('sex')
 sex_mce <- get_mce(c('M', 'F'), ntrials = 100000, exp_df$male_prob, 
                    length(exp_df$id[exp_df$sex == 'M']) / nrow(exp_df), stat_f)
-sex_exp_vs_total_rr <- calc_relative_risk(sex_exp_vs_total_m, alpha=0.01)
+sex_exp_vs_total_rr <- calc_relative_risk(sex_exp_vs_total_m, alpha = 0.01)
 
 @
 \subsection{Demographic Information}
