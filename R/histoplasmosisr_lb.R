@@ -536,7 +536,9 @@ get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
   m_f_ratio_df$sex.y <- NULL
   names(m_f_ratio_df) <- c("target_date", "males", "females")
   m_f_ratio_df$target_date <- 
-    as.POSIXct(m_f_ratio_df$target_date)
+    as.Date(m_f_ratio_df$target_date, format = "%m/%d/%Y")
+  affected_df$first_noted <- as.Date(affected_df$first_noted, 
+                                        format = "%m/%d/%Y")
   df <- merge(affected_df, m_f_ratio_df, by.x = "first_noted", 
               by.y = "target_date")
   ## Calculate the probability of a male being selected at random on the
@@ -567,12 +569,12 @@ get_housing_type_ratios <- function(conn, affected_df, housing_types,
   }
   ht_df <- sqlQuery(conn, str_c(
     "SELECT dd.target_date, #ht_temp.ht, count(#ht_temp.ht) as count
-    FROM daily_demo dd
-    INNER JOIN #ht_temp ON #ht_temp.location = dd.midnight_location
+    FROM v_animal_by_dayD dd
+    INNER JOIN #ht_temp ON #ht_temp.location = dd.current_location
     WHERE target_date in ('", 
     vector2string(strftime(target_date_df$target_date, format = "%m/%d/%Y"), 
                   SS = "', '"), "')
-        AND dd.arc_species = '", arc_species_code, "'
+        AND dd.arc_species_code = '", arc_species_code, "'
     GROUP BY dd.target_date, #ht_temp.ht
     ORDER BY dd.target_date, #ht_temp.ht"), stringsAsFactors = FALSE)
   
@@ -592,8 +594,6 @@ get_housing_type_ratios <- function(conn, affected_df, housing_types,
   ht_df_1 <- merge(corral, gang, by = "target_date")
   ht_df_2 <- merge(single, other, by = "target_date")
   ht_df_3 <- merge(ht_df_1, ht_df_2, by = "target_date")
-  ht_df_3$target_date <- as.POSIXct(ht_df_3$target_date, 
-                                    format = "%Y-%m-%d")
   ht_df_4 <- merge(affected_df, ht_df_3,
                  by.x = "first_noted", by.y = "target_date")
   ## Calculate the probability of an animal in a 
