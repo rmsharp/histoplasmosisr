@@ -14,7 +14,6 @@
 \usepackage{underscore}
 \usepackage{titling}
 \usepackage{mathbbol}
-\usepackage{fixltx2e} % allows text subscripts
 \newcommand{\subtitle}[1]{%
   \posttitle{%
     \par\end{center}
@@ -180,7 +179,7 @@ Date: July 5, 2017 at 5:49:27 PM CDT
 To: Mark Sharp <msharp@TxBiomed.org>
 
 Hello, 
-I got an email from Terry regarding TAC, so I'll get that set up.  
+I got an email from Terry regarding TAC, so I will get that set up.
 
 For SQLMED:
 The test (name) ordered would be: SMEAR, WRIGHT STAIN
@@ -192,13 +191,13 @@ cross reference)
 Also reminder to extract data from pathology pdf reports for histoplasmosis 
 data.  Possible terms this might be under are histoplasmosis, histoplasma, 
 H.capsulatum, Histo Cap (different pathologists, different terms.  
-If I come across any other terms/forms, I'll let you know)
+If I come across any other terms/forms, I will let you know)
 
 
 Current questions to ask from this:
 1. Effects of living environment	
     - Corral vs Non-corral
-    -  \% of life in habitats
+    - Percent of life in habitats
 
 2. Age at Diagnosis vs the general colony (control group)
 
@@ -207,12 +206,12 @@ population as well. If Females seem to be more effected,
 is it because our population is female heavy?)
 
 4. Somehow link to genetics, do certain lines, sires, dams, lineage have a 
-higher occurrence of histo.  I'm not sure how to relate kinship to this.
+higher occurrence of histo.  I am not sure how to relate kinship to this.
 
 5. Somehow, link clinical data.  I need to spend some time on CAMP to see 
 how to approach this.  Hopefully get to do that later this week?
 
-This might be a start.  I'll come by and check in with you tomorrow.  T
+This might be a start.  I will come by and check in with you tomorrow.  T
 hank you so much for all your help, I really appreciate it.
 
 
@@ -225,7 +224,6 @@ Look for age matched controls in necropsy animals. Compare amyloidosis prevalenc
 Pull all clinical chemistry and CBCs for all affected and controls two years or
 less from diagnosis date.
 
-@
 
 <<set_options, echo = FALSE, include = FALSE>>=
 options(continue = " ")
@@ -430,10 +428,11 @@ time_series <- ts(test$freq,
                              end = c(max_year,
                             max(month(original_df$first_noted[
                               year(original_df$first_noted) == max_year]))))
-ts_gls <- gls(time_series)
+##ts_gls <- gls(time_series)
 
 @
 \subsection{Time Series Analysis for Seasonal Affects}
+Has not been completed.
 Figure~\ref{month-of-year} shows the total number of affected animals for 
 each month of the year in a 
 <<plot-hist, fig.height = 6, fig.width=8, results = 'asis', include = TRUE>>=
@@ -467,7 +466,7 @@ no_roundup_exp_df$month_name <-
   factor(str_sub(month.name[no_roundup_exp_df$month], 1, 3),
          levels = str_sub(month.name[1:12], 1, 3))
 ggplot(no_roundup_exp_df, aes(x=month_name,)) + 
-  geom_bar(fill = "#660000", colour = "#660000", stat = "bin") + 
+  geom_bar(fill = "#660000", colour = "#660000", stat = "count") + 
   xlab("Month of Year") + ylab("Count") 
 cat("\\label{gg-plot-month-of-year}\n")
 cat(str_c("\\caption{Bar plot of number of \\emph{Histoplasmosis duboisii} 
@@ -547,9 +546,8 @@ calculated for the observed animals.
 \end{enumerate}
 
 <<wrapup>>=
-odbcClose(conn)
-
 elapsed_time <- get_elapsed_time_str(start_time)
+
 @
 \clearpage
 The current date and time is \Sexpr{Sys.time()}. The processing time for
