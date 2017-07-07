@@ -101,7 +101,24 @@ get_ctrl_df <- function(conn, exp_df, arc_species_code) {
   
   ctrl_df
 }
-
+#' Add match_id column to dataframe having no match_id column
+#' 
+#' The destination dataframe (\code{match_dest}) gets its new \code{match_id}
+#' column assigned the values from the \code{id} column of the dataframe that
+#' already has a \code{match_id} column.
+#' Thus, at the beginning
+#' \code{match_dest$id == match_source$match_id}
+#' and at the end
+#' \code{match_dest$match_id == match_source$id} as well.
+#' @param match_source dataframe with the \code{match_id} column
+#' @param match_dest datafrome getting the \code{match_id} column
+#' @export
+add_match_id <- function(match_source, match_dest) {
+  match_dest <- match_dest[order(match_dest$id), ]
+  match_source <- match_source[order(match_source$match_id), ]
+  match_dest$match_id <- match_source$id
+  match_dest
+}
 #' Returns dataframe with Ids of animals that were in a corral within 10 
 #' days of being first seen with histoplasmosis.
 #' 
