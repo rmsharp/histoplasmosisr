@@ -515,8 +515,17 @@ get_daily_location_ct <- function(conn, wt_conn, daily_df) {
 #' id, sex, date Histoplasmosis was first noted, etc.)
 #' @param target_date_df dataframe with the dates (target_date)
 #' @param arc_species_code of all animals being counted.
+#' @import stringi
 #' @export
 get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
+  if (any(names(affected_df) == "males")) {
+    affected_df$males <- NULL
+    warning("Removed column named 'males' from dataframe.")
+  }
+  if (any(names(affected_df) == "females")) {
+    affected_df$females <- NULL
+    warning("Removed column named 'females' from dataframe.")
+  }
   target_date_df <- data.frame(target_date = unique(affected_df$first_noted))
   sql <- str_c(
       "SELECT dd.target_date, sex, count(dd.target_date)
