@@ -273,9 +273,10 @@ daily_ctrl_df <- make_daily_location(conn, X_ctrl, ctrl_df, housing_types)
 
 @
 <<get_df_percentages, echo = FALSE, include = TRUE, results = "asis">>=
-threshold <- 0
-exp_df <- add_location_type_percents(exp_df, daily_exp_df, threshold)
-ctrl_df <- add_location_type_percents(ctrl_df, daily_ctrl_df, threshold)
+threshold_min_percent <- 0
+exp_df <- add_location_type_percents(exp_df, daily_exp_df, 
+                                     threshold_min_percent)
+ctrl_df <- add_location_type_percents(ctrl_df, daily_ctrl_df, threshold_min_percent)
 
 #merged_df <- merge(daily_df, df, by = "id")
 exp_df_to_be_melted <- subset(exp_df, select = c("id", "age", "sex", "days_gang", 
@@ -337,8 +338,10 @@ sex_exp_vs_total_rr <- calc_relative_risk(sex_exp_vs_total_m, alpha = 0.01)
 
 @
 \subsection{Demographic Information}
-There were \Sexpr{nrow(original_df)} of those, \Sexpr{nrow(exp_df)} animals had 
-\Sexpr{threshold} percent of their location history data recorded in the 
+There were \Sexpr{nrow(original_df)} of those, \Sexpr{nrow(exp_df)} animals had
+at least
+\Sexpr{threshold_min_percent} percent of their location history data recorded 
+in the 
 \textit{animal} database. 
 
 
