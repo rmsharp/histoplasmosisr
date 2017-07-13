@@ -57,6 +57,8 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
   affected_df$sex <- as.character(affected_df$sex)
   affected_df$age <- 
     (affected_df$first_noted - affected_df$birth_date) / dyears(1)
+  affected_df$first_noted <- as.Date(affected_df$first_noted)
+  affected_df$birth_date <- as.Date(affected_df$birth_date)
   affected_df
 }
 
@@ -93,6 +95,7 @@ get_ctrl_df <- function(conn, exp_df, arc_species_code) {
                         )
   ctrl_df <- add_day_of_year_and_month(ctrl_df)
   ctrl_df <- add_birth_date(conn, ctrl_df)
+  ctrl_df$first_noted <- as.POSIXct(ctrl_df$first_noted, format = "%Y-%m-%d")
   ctrl_df$birth_date <- as.POSIXct(strftime(ctrl_df$birth_date, format = "%Y-%m-%d"), 
                                    format = "%Y-%m-%d")
   ctrl_df$days_alive <- as.integer(round(1L + (ctrl_df$first_noted -
