@@ -9,8 +9,17 @@ Description: The purpose of this package is to provide an exploratory data
     analysis of animals infected with Histoplasmosis duboisii provided by Dr.
     Ed Dick.
 Depends:
-    R (>= 3.0.3)
+    R (>= 3.2.1)
+Imports:
+    animalr,
+    knitr,
+    lubridate,
+    rmsutilityr,
+    RODBC,
+    stats,
+    stringi,
+    XLConnect
 License: GPL-2
-LazyData: true
+LazyData: TRUE
 VignetteBuilder: knitr
 RoxygenNote: 6.0.1

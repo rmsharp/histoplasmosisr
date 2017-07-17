@@ -7,14 +7,20 @@ add_day_of_year_and_month <- function(df) {
   df
 }
 
-#' Returns dataframe with id, verified_date_tm, specimen_num, test_id,
+#' Get SqlMed records of H. CAP. VAR. DUBOISII positive records
+#' 
+#' @return A dataframe with id, verified_date_tm, specimen_num, test_id,
 #' test_name, observed_value, and entry_date_tm for records indication positive
 #' for \emph{H. CAP. VAR. DUBOISII}
+#' 
 #' @param conn database connection
-#' @param arc_specoes_code to limit the query to a single species.
+#' @param arc_species_code to limit the query to a single species.
+#' @import RODBC
+#' @import stringi
+#' @import XLConnect
 #' @export
 get_sqlmed_h_cap_var_duboisii <- function(conn, arc_species_code) {
-  df <- sqlQuery(conn, str_c(
+  df <- sqlQuery(conn, stri_c(
     "select obr.animal_id as id, obr.verified_date_tm, obr.specimen_num,
     obx.test_id, obx.test_name, obx.observed_value, obx.entry_date_tm
     from clinical_path_obr obr
@@ -38,6 +44,10 @@ get_sqlmed_h_cap_var_duboisii <- function(conn, arc_species_code) {
 #' @param arc_species_code two characters in a single character string
 #' species code 
 #' and the date each animal was noted to have histoplasmosis.
+#' @import animalr
+#' @import lubridate
+#' @import rmsutilityr
+#' @import XLConnect
 #' @export
 get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
   affected_df <- readWorksheet(histo_data, sheet = 1)
@@ -66,8 +76,9 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
 #' and month so that it has the same structure as df.
 #' 
 #' @param conn database connection object
-#' @param affected_df 
-#' @param arc_species_codes character vector with one or more two character
+#' @param exp_df dataframe with affected animals and basic information about 
+#' the histoplasmosis observation.
+#' @param arc_species_code character vector with one two character
 #' representations of animal species originally developed for IACUC use.
 #' @return Dataframe with the following columns:
 #' \itemize{
@@ -78,6 +89,8 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
 #' \item {age in days of the control animal (match_age)}
 #' \item {number of days different}
 #' }
+#' @import animalr
+#' @import lubridate
 #' @export
 get_ctrl_df <- function(conn, exp_df, arc_species_code) {
   ctrl_df <- get_age_sex_matched_controls(conn, exp_df, arc_species_code)
@@ -125,11 +138,15 @@ add_match_id <- function(match_source, match_dest) {
 #' Returns dataframe with Ids of animals that were in a corral within 10 
 #' days of being first seen with histoplasmosis.
 #' 
-#' @param wt_conn database connection object
-#' @param X_id_first_noted name of database table with Ids and dates Histoplasmosis
+#' @param conn database connection object
+#' @param X_id_first_noted name of database table with Ids and dates 
+#' Histoplasmosis
+#' @import rmsutilityr
+#' @import stringi
+#' @import XLConnect
 #' @export
-get_roundup_animals <- function(wt_conn, X_id_first_noted) {
-  sql <- str_c(
+get_roundup_animals <- function(conn, X_id_first_noted) {
+  sql <- stri_c(
     "SELECT x.id FROM ", X_id_first_noted, " x
     WHERE x.id in (select l.id from animal.dbo.location l
       WHERE l.move_date_tm < dateadd(day, -10, x.first_noted)
@@ -137,7 +154,7 @@ get_roundup_animals <- function(wt_conn, X_id_first_noted) {
         AND cast(l.exit_date_tm as DATE) <= x.first_noted 
         AND l.location in (", 
         vector2string(define_corral_locations(conn), SS = ", "), ") )")
-  not_roundup_df <- sqlQuery(wt_conn, sql, stringsAsFactors = FALSE)
+  not_roundup_df <- sqlQuery(conn, sql, stringsAsFactors = FALSE)
   not_roundup_df
 }
 
@@ -146,9 +163,11 @@ get_roundup_animals <- function(wt_conn, X_id_first_noted) {
 #' @param conn database connection object
 #' @param X_id_first_noted character vector of length one with the name of the 
 #' table to create
+#' @import RODBC
+#' @import stringi
 #' @export
 create_X_id_first_noted <- function(conn, X_id_first_noted) {
-  sqlQuery(conn, str_c(
+  sqlQuery(conn, stri_c(
     "CREATE TABLE ", X_id_first_noted, " ( 
       id CHAR(6),
       first_noted DATE) "))
@@ -160,10 +179,12 @@ create_X_id_first_noted <- function(conn, X_id_first_noted) {
 #' @param wt_conn database connection object
 #' @param X_id_first_noted name of database table receiving inserts
 #' @param df dataframe containing data being inserted.
+#' @import RODBC
+#' @import stringi
 #' @export
 insert_id_first_noted <- function(wt_conn, X_id_first_noted, df) {
     for (i in seq_along(df$id)) {
-      status <- sqlQuery(wt_conn, str_c(
+      status <- sqlQuery(wt_conn, stri_c(
         "insert into ", X_id_first_noted, " 
         (id, first_noted) 
         values ('", df$id[i], "', '", 
@@ -174,7 +195,7 @@ insert_id_first_noted <- function(wt_conn, X_id_first_noted, df) {
 #' Make daily location dataframe.
 #' 
 #' @return A dataframe with a row with \code{target_date}, \code{location}, 
-#' \code{id}, and columns for housing types (\code{gand}, \code{corral}, 
+#' \code{id}, and columns for housing types (\code{gang}, \code{corral}, 
 #' \code{single}, \code{other} with either \code{1} or \code{0} depending on
 #' whether or not the animal was in that type of housing on the target date
 #' for each day of life prior to the 
@@ -184,12 +205,17 @@ insert_id_first_noted <- function(wt_conn, X_id_first_noted, df) {
 #' @param conn database connection object
 #' @param X_id_first_noted name of database table with Ids and dates Histoplasmosis
 #' was first noted.
+#' @param df dataframe containing data being inserted.
+#' @param housing_types list of housing types (\code{gang}, \code{corral}, 
+#' \code{single}, and \code{other})
+#' @import RODBC
+#' @import stringi
 #' @export
 make_daily_location <- function(conn, X_id_first_noted, df, housing_types) {
-  drop_status <- sqlQuery(conn, str_c("drop table ", X_id_first_noted))
+  drop_status <- sqlQuery(conn, stri_c("drop table ", X_id_first_noted))
   create_X_id_first_noted(conn, X_id_first_noted)
   insert_id_first_noted(conn, X_id_first_noted, df)
-  daily_df <- sqlQuery(conn, str_c(
+  daily_df <- sqlQuery(conn, stri_c(
     "SELECT dd.target_date, 
       dd.location, 
       dd.id 
@@ -214,7 +240,7 @@ make_daily_location <- function(conn, X_id_first_noted, df, housing_types) {
 #' 
 #' @param conn database connection object
 #' @param affected_df dataframe with animal Id and date to match on.
-#' @param arc_species_codes character vector with one or more two character
+#' @param arc_species_code character vector with one two character
 #' representations of animal species originally developed for IACUC use.
 #' 
 #' Dataframe returned has 
@@ -224,13 +250,14 @@ make_daily_location <- function(conn, X_id_first_noted, df, housing_types) {
 #' the age in days of the experimental animal (age_in_days),
 #' the age in days of the control animal (match_age), 
 #' and the number of days different
-#' @import stringr
+#' @import RODBC
+#' @import stringi
 #' @export
 get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' @description The first temporary table created (\code{#ctrl}) is 
 #' used to store the potential control animals found.
 
-  status <- sqlQuery(conn, str_c(
+  status <- sqlQuery(conn, stri_c(
     "CREATE TABLE #ctrl ( 
 	    id char(6), 
       sex char(1), 
@@ -248,7 +275,10 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' is as close to the same age as possible. Care is taken to insure that 
 #' the same control animal is not selected more than once.
 #' 
-  status <- sqlQuery(conn, str_c(
+#' @import RODBC
+#' @import stringi
+#' @export
+  status <- sqlQuery(conn, stri_c(
     "CREATE TABLE #result(
        [match_id] [varchar](6) NOT NULL,
        [match_sex] [char](1) NOT NULL,
@@ -261,13 +291,13 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
        [day_diff] [int] NULL)"))
   
   for (i in seq_along(affected_df$id)) {
-    (status <- sqlQuery(conn, str_c(
+    (status <- sqlQuery(conn, stri_c(
       "INSERT INTO #ctrl (id, sex, first_noted, arc_species, age_in_days)
       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
       "', '", affected_df$first_noted[i], "', '", arc_species_code, "', ",
       affected_df$days_alive[i], ")")))
   }
-  # sqlQuery(conn, str_c(
+  # sqlQuery(conn, stri_c(
   #   "UPDATE #ctrl
   #   SET age_in_days = d.age_in_days
   #   FROM #ctrl c
@@ -275,7 +305,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   #   ON c.id = d.id AND c.first_noted = d.target_date"))
   #   
     
-  status <- sqlQuery(conn, str_c(
+  status <- sqlQuery(conn, stri_c(
       "INSERT INTO #result
     ( match_id,
       match_sex,
@@ -313,12 +343,12 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
         c.first_noted,
         c.age_in_days"))
     
-#     sqlQuery(conn, str_c(
+#     sqlQuery(conn, stri_c(
 #       "INSERT INTO #ctrl (id, sex, first_noted)
 #       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
 #       "', '", affected_df$first_noted[i], "')"))
   
-  ctrl_df <- sqlQuery(conn, str_c(
+  ctrl_df <- sqlQuery(conn, stri_c(
     "SELECT r.id, MIN(r.match_id) AS min_match_id, 
       r.match_species AS arc_species, 
       r.age_in_days, r.match_age,  r.day_diff
@@ -333,8 +363,8 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' @description Once the result set has been created the temporary tables 
 #' (\code{#ctrl} and \code{#result}) are deleted.
 
-  status <- sqlQuery(conn, str_c("DROP TABLE #ctrl"))
-  status <- sqlQuery(conn, str_c("DROP TABLE #result"))
+  status <- sqlQuery(conn, stri_c("DROP TABLE #ctrl"))
+  status <- sqlQuery(conn, stri_c("DROP TABLE #result"))
 
   ctrl_df
 }
@@ -346,9 +376,11 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' sums and percents.
 #' @param daily_df dataframe that has one record per day for each id from birth
 #' to first_noted date.
+#' @param threshold_min_percent the is an integer that in the minimum percent
+#' of an animal's life that must have records before the data are included.
 #' @export
 add_location_type_percents <- function(df, daily_df, 
-                                       threshold_min_percent = 100) {
+                                       threshold_min_percent = 100L) {
   df$days_gang <- sapply(df$id, FUN = function(id) {get_days_gang(id, daily_df)})
   df$percent_gang <- (df$days_gang / df$days_alive) * 100
   df$days_corral <- 
@@ -369,9 +401,11 @@ add_location_type_percents <- function(df, daily_df,
 #' housing structures.
 #' 
 #' @param conn database connection object
+#' @import RODBC
+#' @import stringi
 #' @export
 define_gang_locations <- function(conn) {
-  location <- sqlQuery(conn, str_c(
+  location <- sqlQuery(conn, stri_c(
   "SELECT vl.location from animal.dbo.valid_locations vl 
   WHERE (vl.description like '%gang%' 
     OR vl.description like '%breeding%'
@@ -385,9 +419,11 @@ define_gang_locations <- function(conn) {
 #' housing structures.
 #' 
 #' @param conn database connection object
+#' @import RODBC
+#' @import stringi
 #' @export
 define_corral_locations <- function(conn) {
-  corral <- sqlQuery(conn, str_c(
+  corral <- sqlQuery(conn, stri_c(
     "SELECT vl.location from animal.dbo.valid_locations vl ",
     "WHERE vl.description like '%corral%' "))
   corral$location[corral$location >= 1]
@@ -397,9 +433,11 @@ define_corral_locations <- function(conn) {
 #' housing structures.
 
 #' @param conn database connection object
+#' @import stringi
+#' @import XLConnect
 #' @export
 define_single_locations <- function(conn) {
-  group <- sqlQuery(conn, str_c(
+  group <- sqlQuery(conn, stri_c(
     "SELECT vl.location from animal.dbo.valid_locations vl ",
     "WHERE vl.group_housing_flag = 'N' "))
   group$location[group$location >= 1]
@@ -408,10 +446,12 @@ define_single_locations <- function(conn) {
 #' Returns a numeric vector with the locations that are classified as other
 #' housing structures.
 
-#' @param daily_df dataframe with individual daily information for subjects
+#' @param conn database connection object
+#' @import stringi
+#' @import XLConnect
 #' @export
 define_other_locations <- function(conn) {
-  other <- sqlQuery(conn, str_c(
+  other <- sqlQuery(conn, stri_c(
   "select vl.location from valid_locations vl ",
   "where vl.location not in ( '", 
     vector2string(define_corral_locations(conn)), "') ",
@@ -471,7 +511,21 @@ get_days_single <- function(id, daily_df) {
 get_days_other <- function(id, daily_df) {
   length(daily_df$id[daily_df$id == id & daily_df$other == 1])
 }
-
+#' Get daily location counts for each location type
+#' 
+#' Location types of \code{gang}, \code{corral}, \code{single}, 
+#' and \code{other} are tabulated. 
+#' The counts for \code{single} are not reliable in that they are
+#' strongly overrepresented because locations that can have single housing 
+#' are classified as singly housed.
+#' 
+#' @param conn database connection object
+#' @param wt_conn database connection object
+#' @param daily_df dataframe containing data being counted.
+#' @import rmsutilityr
+#' @import RODBC
+#' @import stringi
+#' @export
 get_daily_location_ct <- function(conn, wt_conn, daily_df) {
   #unique_locations <- unique(daily_df$location)
   gang_loc <- vector2string(define_gang_locations(conn))
@@ -479,27 +533,27 @@ get_daily_location_ct <- function(conn, wt_conn, daily_df) {
   single_loc <- vector2string(define_single_locations(conn))
   other_loc <- vector2string(define_other_locations(conn))
   unique_dates <- unique(daily_df$target_date)
-  daily_gang_ct <- sqlQuery(wt_conn, str_c(
+  daily_gang_ct <- sqlQuery(wt_conn, stri_c(
     "select count(d.id) as cnt, d.target_date, 'gang' as housing  ",
-    "from daily_demo d ",
-    "where d.midnight_location in ('", gang_loc, "') ",
+    "from V_ANIMAL_BY_DAYD d ",
+    "where d.location in ('", gang_loc, "') ",
     "and d.target_date in ('", vector2string(unique_dates), "') ",
     "group by  d.target_date "))
-  daily_corral_ct <- sqlQuery(wt_conn, str_c(
+  daily_corral_ct <- sqlQuery(wt_conn, stri_c(
     "select count(d.id) as cnt, d.target_date, 'corral' as housing  ",
-    "from daily_demo d ",
+    "from V_ANIMAL_BY_DAYD d ",
     "where d.midnight_location in ('", corral_loc, "') ",
     "and d.target_date in ('", vector2string(unique_dates), "') ",
     "group by  d.target_date "))
-  daily_single_ct <- sqlQuery(wt_conn, str_c(
+  daily_single_ct <- sqlQuery(wt_conn, stri_c(
     "select count(d.id) as cnt, d.target_date, 'single' as housing  ",
-    "from daily_demo d ",
+    "from V_ANIMAL_BY_DAYD d ",
     "where d.midnight_location in ('", single_loc, "') ",
     "and d.target_date in ('", vector2string(unique_dates), "') ",
     "group by  d.target_date "))
-  daily_other_ct <- sqlQuery(wt_conn, str_c(
+  daily_other_ct <- sqlQuery(wt_conn, stri_c(
     "select count(d.id) as cnt, d.target_date, 'other' as housing  ",
-    "from daily_demo d ",
+    "from V_ANIMAL_BY_DAYD d ",
     "where d.midnight_location in ('", other_loc, "') ",
     "and d.target_date in ('", vector2string(unique_dates), "') ",
     "group by  d.target_date "))
@@ -516,11 +570,12 @@ get_daily_location_ct <- function(conn, wt_conn, daily_df) {
 #' @param conn database connection object
 #' @param affected_df dataframe containing data about affected animals (e.g.,
 #' id, sex, date Histoplasmosis was first noted, etc.)
-#' @param target_date_df dataframe with the dates (target_date)
 #' @param arc_species_code of all animals being counted.
+#' @import RODBC
+#' @import rmsutilityr
 #' @import stringi
 #' @export
-get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
+get_male_female_ratio <- function(conn, affected_df, arc_species_code) {
   if (any(names(affected_df) == "males")) {
     affected_df$males <- NULL
     warning("Removed column named 'males' from dataframe.")
@@ -530,7 +585,7 @@ get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
     warning("Removed column named 'females' from dataframe.")
   }
   target_date_df <- data.frame(target_date = unique(affected_df$first_noted))
-  sql <- str_c(
+  sql <- stri_c(
       "SELECT dd.target_date, sex, count(dd.target_date)
       FROM V_ANIMAL_AGE_SEX_SPECIES AS dd
       WHERE target_date in ('", 
@@ -564,8 +619,10 @@ get_male_female_ratio <- function(conn, affected_df,arc_species_code) {
 #' @param conn database connection object
 #' @param affected_df dataframe containing data about affected animals (e.g.,
 #' id, sex, date Histoplasmosis was first noted, etc.)
-#' @param target_date_df dataframe with the dates (target_date)
+#' @param housing_types list of housing types (\code{gang}, \code{corral}, 
+#' \code{single}, and \code{other})
 #' @param arc_species_code of all animals being counted.
+#' @import stringi
 #' @export
 get_housing_type_ratios <- function(conn, affected_df, housing_types,
                                     arc_species_code) {
@@ -574,12 +631,12 @@ get_housing_type_ratios <- function(conn, affected_df, housing_types,
   for (i in seq_along(housing_types)) {
     name <- names(housing_types)[i]
     for (location in housing_types[[i]]) {
-      sqlQuery(conn, str_c(
+      sqlQuery(conn, stri_c(
         "INSERT INTO #ht_temp (location, ht) values (", location, 
         ", '", name, "')"))
     }
   }
-  ht_df <- sqlQuery(conn, str_c(
+  ht_df <- sqlQuery(conn, stri_c(
     "SELECT dd.target_date, #ht_temp.ht, count(#ht_temp.ht) as count
     FROM v_animal_by_dayD dd
     INNER JOIN #ht_temp ON #ht_temp.location = dd.current_location
@@ -624,8 +681,9 @@ get_housing_type_ratios <- function(conn, affected_df, housing_types,
 #' @param mymatrix 2 by 2 matrix
 #' @param alpha Type 1 error rate
 #' @param reference_row (unexposed or control group)
+#' @import stats
 #' @export
-calc_relative_risk <- function(mymatrix, alpha=0.05, reference_row=2) {
+calc_relative_risk <- function(mymatrix, alpha = 0.05, reference_row = 2) {
   numrow <- nrow(mymatrix)
   myrownames <- rownames(mymatrix)
   relative_risk <- numeric(numrow)
@@ -653,7 +711,7 @@ calc_relative_risk <- function(mymatrix, alpha=0.05, reference_row=2) {
       sigma <- sqrt((1 / disease_exposed) - (1 / tot_exposed) +
                       (1 / disease_unexposed) - (1 / tot_unexposed))
       # sigma is the standard error of estimate of log of relative risk
-      z <- qnorm(1 - (alpha / 2))
+      z <- stats::qnorm(1 - (alpha / 2))
       lowervalue[i] <- relative_risk[i] * exp(-z * sigma)
       uppervalue[i] <- relative_risk[i] * exp( z * sigma)
       #print(paste("category =", rowname, ", ", confidence_level,
