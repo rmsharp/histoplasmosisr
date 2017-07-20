@@ -40,20 +40,15 @@ get_sqlmed_h_cap_var_duboisii <- function(conn, arc_species_code) {
 #' each animal was first noted to have histoplasmosis.
 #' 
 #' @param conn database connection object
-#' @param histo_data name and path of the Excel file containing animal Ids
-#' @param arc_species_code two characters in a single character string
-#' species code 
-#' and the date each animal was noted to have histoplasmosis.
+#' @param affected_df dataframe containing animal Ids and the date each animal 
+#' was noted to have histoplasmosis.
 #' @import animalr
 #' @import lubridate
 #' @import rmsutilityr
-#' @import XLConnect
 #' @export
-get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
-  affected_df <- readWorksheet(histo_data, sheet = 1)
-  names(affected_df) <-  c("id", "first_noted")
-  affected_df$arc_species <- arc_species_code
-  
+add_supplimental_data <- function(conn, affected_df) {
+  affected_df$id <- blank_fill_ids(affected_df$id)
+  affected_df <- add_arc_species_code(conn, affected_df)
   affected_df$id <- blank_fill_ids(affected_df$id)
   affected_df <- add_day_of_year_and_month(affected_df)
   affected_df <- add_birth_date(conn, affected_df)
@@ -76,7 +71,7 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
 #' and month so that it has the same structure as df.
 #' 
 #' @param conn database connection object
-#' @param exp_df dataframe with affected animals and basic information about 
+#' @param affected_df dataframe with affected animals and basic information about 
 #' the histoplasmosis observation.
 #' @param arc_species_code character vector with one two character
 #' representations of animal species originally developed for IACUC use.
@@ -92,17 +87,18 @@ get_affected_animals_df <- function(conn, histo_data, arc_species_code) {
 #' @import animalr
 #' @import lubridate
 #' @export
-get_ctrl_df <- function(conn, exp_df, arc_species_code) {
-  ctrl_df <- get_age_sex_matched_controls(conn, exp_df, arc_species_code)
+get_ctrl <- function(conn, affected_df, arc_species_code) {
+  ctrl_df <- get_age_sex_matched_controls(conn, affected_df, arc_species_code)
   
-  ctrl_df <- merge(exp_df[ , c("id", "first_noted", "sex", "arc_species")], 
+  ctrl_df <- merge(affected_df[ , c("id", "first_noted", "sex", 
+                                    "arc_species_code")], 
                    ctrl_df[ , c("id", "min_match_id", "match_age", "day_diff")], 
                    by = "id")
   ctrl_df <- data.frame(id = ctrl_df$min_match_id, 
                         match_id = ctrl_df$id,
                         first_noted = ctrl_df$first_noted,
                         sex = ctrl_df$sex,
-                        arc_species = ctrl_df$arc_species,
+                        arc_species_code = ctrl_df$arc_species_code,
                         days_alive = ctrl_df$match_age,
                         stringsAsFactors = FALSE
                         )
@@ -262,7 +258,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 	    id char(6), 
       sex char(1), 
       first_noted DATE, 
-      arc_species CHAR(2), 
+      arc_species_code CHAR(2), 
       age_in_days INT
     )
     "))
@@ -292,7 +288,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   
   for (i in seq_along(affected_df$id)) {
     (status <- sqlQuery(conn, stri_c(
-      "INSERT INTO #ctrl (id, sex, first_noted, arc_species, age_in_days)
+      "INSERT INTO #ctrl (id, sex, first_noted, arc_species_code, age_in_days)
       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
       "', '", affected_df$first_noted[i], "', '", arc_species_code, "', ",
       affected_df$days_alive[i], ")")))
@@ -350,7 +346,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   
   ctrl_df <- sqlQuery(conn, stri_c(
     "SELECT r.id, MIN(r.match_id) AS min_match_id, 
-      r.match_species AS arc_species, 
+      r.match_species AS arc_species_code, 
       r.age_in_days, r.match_age,  r.day_diff
     FROM #result r
     INNER JOIN #result r2
@@ -781,4 +777,42 @@ get_stat_f <- function(variable) {
     }
   } 
   stat_f
+}
+#' Get clinical pathology data from one of two views
+#' 
+#' @return A dataframe with clinical pathology data from either the
+#' \code{v_clinical_path_cbc} view or the \code{v_clinical_path_chem} view.
+#' The data are restricted by the animal Ids provided.
+#' 
+#' @param conn database connection object
+#' inserting into a SQL query.
+#' @param view character vector of length one having the name of the 
+#' database view that provides the data.
+#' @param affected_df dataframe containing the affected animals. This
+#' dataframe is ammended using data from the view.
+#' @import RODBC
+#' @import rmsutilityr
+#' @import stringi
+#' @export
+get_clin_path <- function(conn, view, affected_df) {
+  id_str <- vector2string(affected_df$id, SS = "', '")
+  clin_path_sql <- stri_c(
+    "select vcpc.*
+    from ", view, " as vcpc
+    where vcpc.id in ('", id_str, "')")
+  
+  clin_path_df <- sqlQuery(conn, clin_path_sql, stringsAsFactors = FALSE)
+  clin_path_df$message_id <- NULL
+  
+  clin_path_df <- merge(clin_path_df, affected_df[ , c("id", "first_noted")], 
+                        by = "id", all.x = TRUE, all.y = FALSE)
+  clin_path_df$clin_path_days <- 
+    abs((as.POSIXct(clin_path_df$first_noted) -
+           clin_path_df$observation_date_tm) /
+          ddays(1))
+  clin_path_df <- clin_path_df[order(clin_path_df$id, 
+                                     clin_path_df$clin_path_days), ]
+  
+  clin_path_df <- clin_path_df[!duplicated(clin_path_df$id), ]
+  clin_path_df
 }
