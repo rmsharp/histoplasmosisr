@@ -659,7 +659,7 @@ get_housing_type_ratios <- function(conn, affected_df, housing_types,
   ht_df_1 <- merge(corral, gang, by = "target_date")
   ht_df_2 <- merge(single, other, by = "target_date")
   ht_df_3 <- merge(ht_df_1, ht_df_2, by = "target_date")
-  ht_df_4 <- merge(affected_df, ht_df_3,
+  ht_df_4 <- merge(affected_df, ht_df_3, all.x = TRUE,
                  by.x = "first_noted", by.y = "target_date")
   ## Calculate the probability of an animal in a 
   ##    gang cage being selected at random on the target_date,
