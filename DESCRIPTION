@@ -1,7 +1,7 @@
 Package: histoplasmosisr
 Title: Analyze Histoplasmosis duboisii infections in baboons
-Version: 0.1.7
-Date: 2017-07-21
+Version: 0.1.8
+Date: 2017-07-24
 Authors@R: c(person("R. Mark", "Sharp", role = c("aut", "cre"), email =
     "msharp@TxBiomed.org"), person("Priscilla C.", "Williams", role = "aut",
     email = "williamspc@livemail.uthscsa.edu"))
