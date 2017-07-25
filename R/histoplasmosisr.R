@@ -606,7 +606,9 @@ get_male_female_ratio <- function(conn, affected_df, arc_species_code) {
               by.y = "target_date")
   ## Calculate the probability of a male being selected at random on the
   ## target_date
-  within(df, {male_prob <- males / (males + females)})
+  ## within(df, {male_prob <- males / (males + females)})
+  df$male_prob <- df$males / (df$males + df$females)
+  df
 }
 #' Returns a dataframe with the Id, date, and the number of gang, corral, 
 #' single, and other housing type animals of the a specified species on that 
