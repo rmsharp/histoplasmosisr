@@ -100,6 +100,7 @@ get_ctrl <- function(conn, affected_df, arc_species_code) {
                         sex = ctrl_df$sex,
                         arc_species_code = ctrl_df$arc_species_code,
                         days_alive = ctrl_df$match_age,
+                        day_diff = ctrl_df$day_diff,
                         stringsAsFactors = FALSE
                         )
   ctrl_df <- add_day_of_year_and_month(ctrl_df)
@@ -323,13 +324,18 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
         c.age_in_days, 
         MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
       FROM dbo.v_animal_age_sex_species d
-      INNER JOIN #ctrl c ON d.sex = c.sex
+      INNER JOIN location l on d.id = l.id
         AND NOT EXISTS (
           SELECT 1 FROM #ctrl c2 WHERE d.id = c2.id
         )
         AND d.arc_species_code = 'PC'
       WHERE c.age_in_days = d.age_in_days
         AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 500
+        AND NOT EXISTS (
+          SELECT 1 FROM location l WHERE d.id = l.id
+            AND l.location < 1.0
+        )
+      
       GROUP BY d.id, 
         d.sex, 
         d.target_date, 
