@@ -304,41 +304,45 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
     
   status <- sqlQuery(conn, stri_c(
     "INSERT INTO #result
-    ( match_id,
-    match_sex,
-    match_date,
-    match_age,
-    match_species,
-    id,
-    first_noted,
-    age_in_days,
-    day_diff
-    )
+      ( match_id,
+      match_sex,
+      match_date,
+      match_age,
+      match_species,
+      id,
+      first_noted,
+      age_in_days,
+      day_diff
+      )
     SELECT d.id AS match_id, 
-    d.sex AS match_sex, 
-    d.target_date AS match_date, 
-    d.age_in_days AS match_age, 
-    d.arc_species_code AS match_species, 
-    c.id,
-    c.first_noted, 
-    c.age_in_days, 
-    MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
+      d.sex AS match_sex, 
+      d.target_date AS match_date, 
+      d.age_in_days AS match_age, 
+      d.arc_species_code AS match_species, 
+      c.id,
+      c.first_noted, 
+      c.age_in_days, 
+      MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
     FROM dbo.v_animal_age_sex_species d
     INNER JOIN #ctrl c ON d.sex = c.sex
-    AND NOT EXISTS (
-    SELECT 1 FROM #ctrl c2 WHERE d.id = c2.id
-    )
-    AND d.arc_species_code = 'PC'
+      AND NOT EXISTS (
+        SELECT 1 FROM #ctrl c2 WHERE d.id = c2.id
+        )
+      AND d.arc_species_code = 'PC'
     INNER JOIN master m on d.id = m.id
-    AND EXISTS (
-    select 1 from acq_disp ad 
-    where cast(m.birth_date as date) = cast(ad.acq_date_tm as date))
+      AND EXISTS (
+        select 1 from acq_disp ad 
+        where cast(m.birth_date as date) = cast(ad.acq_date_tm as date)
+          and m.id = ad.id
+      )
+    INNER JOIN current_data cd on d.id = cd.id
+	    AND ISNULL(cd.disp_date_tm_max, getdate()) >= c.first_noted
     WHERE c.age_in_days = d.age_in_days
-    AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 500
-    AND NOT EXISTS (
-    SELECT 1 FROM location l WHERE d.id = l.id
-    AND l.location < 1.0
-    )
+      AND ABS(DATEDIFF(DAY, c.first_noted, d.target_date)) < 10000
+      AND NOT EXISTS (
+        SELECT 1 FROM location l WHERE d.id = l.id
+          AND l.location < 1.0
+      )
     GROUP BY d.id, 
     d.sex, 
     d.target_date, 
