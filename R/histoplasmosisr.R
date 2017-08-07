@@ -228,7 +228,6 @@ make_daily_location <- function(conn, X_id_first_noted, df, housing_types) {
   daily_df$other <- ifelse(daily_df$location %in% housing_types$other, 1, 0)
   daily_df  
 }
-
 #' Returns a dataframe with age and sex matched controls corresponding to 
 #' animals within affected_df.
 #' 
@@ -253,9 +252,9 @@ make_daily_location <- function(conn, X_id_first_noted, df, housing_types) {
 get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' @description The first temporary table created (\code{#ctrl}) is 
 #' used to store the potential control animals found.
-
+  create_age_location_sex_species_view(conn)
   status <- sqlQuery(conn, stri_c(
-    "CREATE TABLE #ctrl ( 
+    "CREATE TABLE #affected ( 
 	    id char(6), 
       sex char(1), 
       first_noted DATE, 
@@ -272,9 +271,7 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
 #' is as close to the same age as possible. Care is taken to insure that 
 #' the same control animal is not selected more than once.
 #' 
-#' @import RODBC
-#' @import stringi
-#' @export
+
   status <- sqlQuery(conn, stri_c(
     "CREATE TABLE #result(
        [match_id] [varchar](6) NOT NULL,
@@ -289,22 +286,22 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
   
   for (i in seq_along(affected_df$id)) {
     (status <- sqlQuery(conn, stri_c(
-      "INSERT INTO #ctrl (id, sex, first_noted, arc_species_code, age_in_days)
+      "INSERT INTO #affected (id, sex, first_noted, arc_species_code, age_in_days)
       VALUES ('", affected_df$id[i], "', '", affected_df$sex[i], 
       "', '", affected_df$first_noted[i], "', '", arc_species_code, "', ",
       affected_df$days_alive[i], ")")))
   }
   # sqlQuery(conn, stri_c(
-  #   "UPDATE #ctrl
+  #   "UPDATE #affected
   #   SET age_in_days = d.age_in_days
-  #   FROM #ctrl c
+  #   FROM #affected c
   #   INNER JOIN dbo.v_animal_age d
   #   ON c.id = d.id AND c.first_noted = d.target_date"))
   #   
     
   status <- sqlQuery(conn, stri_c(
-    "INSERT INTO #result
-      ( match_id,
+    "INSERT INTO #result (
+      match_id,
       match_sex,
       match_date,
       match_age,
@@ -323,10 +320,10 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
       c.first_noted, 
       c.age_in_days, 
       MIN(ABS(DATEDIFF(DAY, c.first_noted, d.target_date))) AS day_diff
-    FROM dbo.v_animal_age_sex_species d
-    INNER JOIN #ctrl c ON d.sex = c.sex
+    FROM dbo.v_animal_age_location_sex_species d
+    INNER JOIN #affected c ON d.sex = c.sex
       AND NOT EXISTS (
-        SELECT 1 FROM #ctrl c2 WHERE d.id = c2.id
+        SELECT 1 FROM #affected c2 WHERE d.id = c2.id
         )
       AND d.arc_species_code = 'PC'
     INNER JOIN master m on d.id = m.id
@@ -342,6 +339,9 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
       AND NOT EXISTS (
         SELECT 1 FROM location l WHERE d.id = l.id
           AND l.location < 1.0
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM #result d2 WHERE d.id = d2.id
       )
     GROUP BY d.id, 
     d.sex, 
@@ -365,9 +365,9 @@ get_age_sex_matched_controls <- function(conn, affected_df, arc_species_code) {
     GROUP BY r.id, r.match_species, r.age_in_days, r.match_age, r.day_diff"))
 
 #' @description Once the result set has been created the temporary tables 
-#' (\code{#ctrl} and \code{#result}) are deleted.
+#' (\code{#affected} and \code{#result}) are deleted.
 
-  status <- sqlQuery(conn, stri_c("DROP TABLE #ctrl"))
+  status <- sqlQuery(conn, stri_c("DROP TABLE #affected"))
   status <- sqlQuery(conn, stri_c("DROP TABLE #result"))
 
   ctrl_df
